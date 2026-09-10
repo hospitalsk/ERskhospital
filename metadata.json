@@ -1,0 +1,6 @@
+{
+  "name": "ระบบจัดตารางเวรพยาบาล ER",
+  "description": "ระบบจัดตารางเวรพยาบาล ER โรงพยาบาลสังขละบุรี เชื่อมต่อ Supabase สำหรับ เพิ่ม ลบ แก้ไข ข้อมูล",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

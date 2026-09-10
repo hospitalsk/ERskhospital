@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบจัดตารางเวรพยาบาล ER - โรงพยาบาลสังขละบุรี (GitHub + Supabase)</title>
+  <meta name="description" content="ระบบจัดตารางเวรพยาบาล ER โรงพยาบาลสังขละบุรี เชื่อมต่อ Supabase สำหรับ เพิ่ม ลบ แก้ไข ข้อมูล" />
+  <meta property="og:title" content="ระบบจัดตารางเวรพยาบาล ER - โรงพยาบาลสังขละบุรี" />
+  <meta property="og:description" content="ระบบจัดตารางเวรพยาบาล ER โรงพยาบาลสังขละบุรี เชื่อมต่อ Supabase" />
+
+  <!-- Google Fonts: Sarabun & Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Sarabun', 'sans-serif'],
+            thai: ['Sarabun', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome 6 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS CDN (Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- html2pdf.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Supabase JS Client v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .nav-item-active {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+    .badge-shift-M { background-color: #10b981; color: #ffffff; }
+    .badge-shift-A { background-color: #f59e0b; color: #ffffff; }
+    .badge-shift-N { background-color: #ec4899; color: #ffffff; }
+    .badge-shift-ONCALL { background-color: #8b5cf6; color: #ffffff; }
+    .badge-shift-OFF { background-color: #94a3b8; color: #ffffff; }
+    .badge-shift-SP { background-color: #3b82f6; color: #ffffff; }
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-sky-200">
+
+  <!-- 1. LOGIN SCREEN -->
+  <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-sky-900 via-sky-800 to-teal-900">
+    <div class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-7 border border-white/30 relative">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto mb-2 bg-white rounded-2xl shadow-md p-2 flex items-center justify-center border border-sky-100">
+          <img id="loginLogo" src="https://img.icons8.com/color/96/hospital-room.png" alt="Logo" class="w-12 h-12 object-contain">
+        </div>
+        <h1 class="text-xl font-bold text-sky-950" id="loginHospitalTitle">โรงพยาบาลสังขละบุรี</h1>
+        <p class="text-xs font-medium text-sky-600 mt-0.5" id="loginDeptTitle">กลุ่มงานการพยาบาลผู้ป่วยอุบัติเหตุและฉุกเฉิน (ER)</p>
+        <span class="inline-block mt-1.5 px-2.5 py-0.5 bg-sky-100 text-sky-800 text-[11px] rounded-full font-semibold">
+          ระบบจัดตารางเวรพยาบาลออนไลน์
+        </span>
+      </div>
+
+      <form id="loginForm" onsubmit="event.preventDefault(); handleLoginSubmit(event);" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสพนักงาน (Staff ID)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-id-card text-xs"></i></span>
+            <input type="text" id="loginStaffId" required placeholder="เช่น ER00001, ER00002" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-sky-500 uppercase font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสผ่าน (Password)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-lock text-xs"></i></span>
+            <input type="password" id="loginPassword" required placeholder="กรอกรหัสผ่าน" class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-sky-500">
+            <button type="button" onclick="togglePasswordVisibility('loginPassword', 'eyeIconLogin')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+              <i id="eyeIconLogin" class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs">
+          <label class="flex items-center space-x-1.5 cursor-pointer">
+            <input type="checkbox" id="rememberMeCheckbox" class="w-3.5 h-3.5 text-sky-600 rounded">
+            <span class="text-slate-600">จดจำผู้ใช้งาน</span>
+          </label>
+          <span class="text-[11px] text-slate-400"><i class="fa-solid fa-hospital mr-1 text-slate-400"></i>รพ.สังขละบุรี</span>
+        </div>
+
+        <button type="submit" id="btnLoginSubmit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white font-medium text-xs shadow-md transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-right-to-bracket"></i><span>เข้าสู่ระบบ (Sign In)</span>
+        </button>
+
+        <button type="button" onclick="loginAsGuest()" class="w-full py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-calendar-days text-sky-600"></i><span>เข้าสู่ระบบในโหมดทั่วไป (ดูตารางเวร)</span>
+        </button>
+      </form>
+
+      <div class="mt-4 pt-3 border-t border-slate-200">
+        <p class="text-[10px] font-semibold text-slate-500 uppercase text-center mb-1.5">คลิกเพื่อเข้าสู่ระบบทดสอบ (รหัสผ่านเริ่มต้น: 123456)</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 text-xs">
+          <button type="button" onclick="quickFillLogin('ER00001', '123456')" class="p-1 rounded-lg border border-slate-200 hover:bg-sky-50 text-center font-medium">แอดมิน<br><span class="text-[9px] text-slate-400 font-mono">ER00001</span></button>
+          <button type="button" onclick="quickFillLogin('ER00002', '123456')" class="p-1 rounded-lg border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-center font-medium">หัวหน้าเวร<br><span class="text-[9px] text-sky-500 font-mono">ER00002</span></button>
+          <button type="button" onclick="quickFillLogin('ER00003', '123456')" class="p-1 rounded-lg border border-slate-200 hover:bg-emerald-50 text-center font-medium">พยาบาล<br><span class="text-[9px] text-slate-400 font-mono">ER00003</span></button>
+          <button type="button" onclick="quickFillLogin('ER00011', '123456')" class="p-1 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-center font-medium">ผู้ช่วยคนไข้<br><span class="text-[9px] text-amber-600 font-mono">ER00011</span></button>
+          <button type="button" onclick="quickFillLogin('ER00012', '123456')" class="p-1 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900 text-center font-medium">ผู้ช่วยพยาบาล<br><span class="text-[9px] text-teal-600 font-mono">ER00012</span></button>
+        </div>
+        <div class="mt-2.5 text-center">
+          <button type="button" onclick="openSupabaseConfigModal(true)" class="text-[11px] text-sky-700 hover:text-sky-900 hover:underline inline-flex items-center space-x-1">
+            <i class="fa-solid fa-database text-[10px]"></i>
+            <span>ตั้งค่า / ตรวจสอบการเชื่อมต่อฐานข้อมูล Supabase</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. MAIN APPLICATION -->
+  <div id="mainApp" class="hidden min-h-screen flex flex-col bg-slate-50">
+    <!-- Header -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 lg:px-6 py-2.5 flex items-center justify-between shadow-xs">
+      <div class="flex items-center space-x-3">
+        <button type="button" onclick="toggleMobileSidebar()" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"><i class="fa-solid fa-bars text-lg"></i></button>
+        <div class="flex items-center space-x-2.5">
+          <img id="headerLogo" src="https://img.icons8.com/color/96/hospital-room.png" alt="Logo" class="w-8 h-8 object-contain">
+          <div>
+            <h2 id="headerHospitalName" class="text-sm sm:text-base font-bold text-slate-800 leading-tight">โรงพยาบาลสังขละบุรี</h2>
+            <p id="headerDeptName" class="text-[11px] text-sky-600 font-medium leading-none">กลุ่มงานการพยาบาลผู้ป่วยอุบัติเหตุและฉุกเฉิน (ER)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Supabase Status Badge (Visible ONLY to Admin) -->
+        <button type="button" id="btnHeaderSupabase" onclick="openSupabaseConfigModal()" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] border border-slate-200 hover:border-emerald-400 bg-slate-50 transition" title="ตั้งค่าการเชื่อมต่อ (เฉพาะสิทธิ์ Admin)">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="sbStatusDot"></span>
+          <span class="font-medium text-slate-600 hidden sm:inline" id="sbStatusText">Supabase Connected</span>
+        </button>
+
+        <!-- Notifications Bell -->
+        <div class="relative" id="notifBellContainer">
+          <button type="button" onclick="toggleNotificationsDropdown()" class="p-2 rounded-full text-slate-500 hover:bg-slate-100 relative" title="การแจ้งเตือน">
+            <i class="fa-solid fa-bell text-base"></i>
+            <span id="notifBadge" class="hidden absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white"></span>
+          </button>
+          <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 overflow-hidden">
+            <div class="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-800">การแจ้งเตือน</span>
+                <span id="dropdownUnreadCount" class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold hidden">0 ใหม่</span>
+              </div>
+              <div class="flex items-center space-x-2 text-xs">
+                <button type="button" onclick="markAllNotificationsAsRead()" class="text-[11px] text-slate-500 hover:text-sky-600 transition" title="ทำเครื่องหมายว่าอ่านแล้วทั้งหมด"><i class="fa-solid fa-check-double mr-1 text-sky-500"></i>อ่านทั้งหมด</button>
+                <button type="button" onclick="navigateMenu('notifications'); toggleNotificationsDropdown();" class="text-[11px] text-sky-600 hover:underline font-semibold">ดูทั้งหมด</button>
+              </div>
+            </div>
+            <div id="notifDropdownList" class="max-h-72 overflow-y-auto divide-y divide-slate-100"></div>
+          </div>
+        </div>
+
+        <!-- User Profile -->
+        <div class="flex items-center space-x-2 pl-2 border-l border-slate-200">
+          <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs border border-sky-300" id="userAvatarText">ER</div>
+          <div class="hidden sm:block text-left">
+            <p id="userNameDisplay" class="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">พว.สุดารัตน์</p>
+            <span id="userRoleBadge" class="inline-block text-[9px] px-1 rounded font-medium bg-emerald-100 text-emerald-700">พยาบาล</span>
+          </div>
+        </div>
+
+        <!-- Logout -->
+        <button type="button" onclick="confirmLogout()" title="ออกจากระบบ" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition">
+          <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-900/40 z-30 hidden lg:hidden"></div>
+
+      <!-- Sidebar -->
+      <aside id="appSidebar" class="fixed lg:static top-0 bottom-0 left-0 w-60 bg-white border-r border-slate-200 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col justify-between shadow-lg lg:shadow-none">
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <div id="navGroupOverview" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">ภาพรวม</div>
+          <button onclick="navigateMenu('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-chart-pie w-4 text-sky-600"></i><span>Dashboard ภาพรวม</span></button>
+
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">งานประจำวัน</div>
+          <button onclick="navigateMenu('roster')" id="nav-roster" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-calendar-days w-4 text-indigo-600"></i><span>ตารางเวรหลัก</span></button>
+          <button onclick="navigateMenu('myschedule')" id="nav-myschedule" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-calendar-check w-4 text-emerald-600"></i><span>เวรของฉัน</span></button>
+          <button onclick="navigateMenu('leaves')" id="nav-leaves" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-calendar-xmark w-4 text-amber-600"></i>
+              <span>คำขอลา</span>
+            </div>
+            <span id="sidebarLeavesBadge" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-white shadow-xs">0</span>
+          </button>
+          <button onclick="navigateMenu('swaps')" id="nav-swaps" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-repeat w-4 text-rose-600"></i>
+              <span>ขอแลกเวร</span>
+            </div>
+            <span id="sidebarSwapsBadge" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white shadow-xs">0</span>
+          </button>
+
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ข้อมูลหลัก</div>
+          <button onclick="navigateMenu('staff')" id="nav-staff" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-user-nurse w-4 text-teal-600"></i><span>บุคลากร</span></button>
+          <button onclick="navigateMenu('shifts')" id="nav-shifts" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-clock w-4 text-cyan-600"></i><span>ประเภทเวร & วันหยุด</span></button>
+
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">รายงานและสถิติ</div>
+          <button onclick="navigateMenu('reports')" id="nav-reports" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-file-waveform w-4 text-purple-600"></i><span>รายงาน PDF/Excel</span></button>
+          <button onclick="navigateMenu('notifications')" id="nav-notifications" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-bell w-4 text-yellow-600"></i>
+              <span>การแจ้งเตือน</span>
+            </div>
+            <span id="sidebarNotifBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">0</span>
+          </button>
+
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ระบบ</div>
+          <button onclick="navigateMenu('settings')" id="nav-settings" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-gears w-4 text-slate-600"></i><span>ตั้งค่าระบบ</span></button>
+          <button onclick="navigateMenu('profile')" id="nav-profile" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-address-card w-4 text-blue-600"></i><span>โปรไฟล์ส่วนตัว</span></button>
+        </nav>
+        <div class="p-2.5 border-t border-slate-100 bg-slate-50/70 text-center">
+          <p class="text-[10px] text-slate-400" id="sidebarFooterText">Sangkhlaburi ER Roster</p>
+          <p class="text-[9px] text-slate-400 font-medium">Sangkhlaburi Hospital ER</p>
+        </div>
+      </aside>
+
+      <!-- Main Content Container -->
+      <main class="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 bg-slate-50">
+
+        <!-- SECTION: DASHBOARD -->
+        <section id="section-dashboard" class="space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-4 rounded-2xl shadow-xs border border-slate-200">
+            <div>
+              <h1 class="text-base sm:text-lg font-bold text-slate-800">Dashboard อัตรากำลังพยาบาล ER (Real-Time)</h1>
+              <p class="text-xs text-slate-500">ข้อมูลอัตรากำลังและตารางปฏิบัติงานประจำวัน</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span id="currentDateTimeText" class="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-xl"></span>
+              <button onclick="loadAllSupabaseData(true)" class="p-1.5 px-2.5 rounded-xl text-sky-600 hover:bg-sky-50 border border-sky-200 text-xs font-medium flex items-center space-x-1"><i class="fa-solid fa-arrows-rotate"></i><span>รีเฟรชข้อมูล</span></button>
+            </div>
+          </div>
+
+          <!-- Head Nurse & Admin Pending Approvals Notification Banner -->
+          <div id="headPendingApprovalsBanner" class="hidden bg-gradient-to-r from-amber-500/10 via-amber-50 to-rose-50 border border-amber-300 rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="flex items-start space-x-3.5 min-w-0">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-rose-500 text-white flex items-center justify-center text-lg shrink-0 shadow-md shadow-amber-500/20">
+                  <i class="fa-solid fa-bell animate-bounce"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h2 class="font-bold text-slate-900 text-xs sm:text-sm">การแจ้งเตือนงานที่รอหัวหน้าพยาบาลพิจารณาอนุมัติ</h2>
+                    <span id="headPendingTotalBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white shadow-xs">0 รายการ</span>
+                  </div>
+                  <p class="text-xs text-slate-600 mt-1 leading-relaxed" id="headPendingSummaryText">มีคำขอลาและคำขอแลกเวรรอให้หัวหน้าพยาบาลตรวจสอบและอนุมัติ</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <button type="button" onclick="navigateMenu('leaves')" id="btnGoToLeavesApproval" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-calendar-xmark"></i>
+                  <span>อนุมัติการลา (<span id="countPendingLeavesAlert">0</span>)</span>
+                </button>
+                <button type="button" onclick="navigateMenu('swaps')" id="btnGoToSwapsApproval" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-repeat"></i>
+                  <span>อนุมัติแลกเวร (<span id="countPendingSwapsAlert">0</span>)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-lg"><i class="fa-solid fa-user-nurse"></i></div>
+              <div>
+                <p class="text-[11px] text-slate-500">บุคลากรทั้งหมด</p>
+                <h3 class="text-lg font-bold text-slate-800" id="kpiTotalStaff">0 คน</h3>
+                <span class="text-[9px] text-emerald-600 font-medium" id="kpiActiveStaff">พร้อมขึ้นเวร 0 คน</span>
+              </div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg"><i class="fa-solid fa-shield-halved"></i></div>
+              <div>
+                <p class="text-[11px] text-slate-500">อัตรากำลังวันนี้</p>
+                <h3 class="text-lg font-bold text-slate-800" id="kpiTodayDuty">0 เวร</h3>
+                <span class="text-[9px] text-sky-600 font-medium" id="kpiCoverageRate">ครอบคลุม 100%</span>
+              </div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg"><i class="fa-solid fa-person-walking-dashed-line-arrow-right"></i></div>
+              <div>
+                <p class="text-[11px] text-slate-500">บุคลากรลางานวันนี้</p>
+                <h3 class="text-lg font-bold text-slate-800" id="kpiStaffOnLeave">0 คน</h3>
+                <span class="text-[9px] text-amber-600 font-medium">อนุมัติแล้ว</span>
+              </div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center text-lg"><i class="fa-solid fa-moon"></i></div>
+              <div>
+                <p class="text-[11px] text-slate-500">เวรดึกสะสมเดือนนี้</p>
+                <h3 class="text-lg font-bold text-slate-800" id="kpiTotalNightShifts">0 กะ</h3>
+                <span class="text-[9px] text-pink-600 font-medium">เฉลี่ยต่อคนสมดุล</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Duty List -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h2 class="text-xs sm:text-sm font-bold text-slate-800">ตารางปฏิบัติงานประจำวันวันนี้ (Today's Duty)</h2>
+              </div>
+              <span class="text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-100" id="todayDateBadge">-</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500 text-white">เช้า (ช) 08:00 - 16:00</span>
+                  <span class="text-xs font-bold text-emerald-800" id="countDutyM">0 คน</span>
+                </div>
+                <ul id="listDutyM" class="space-y-0.5 text-xs text-slate-700 min-h-[40px]"></ul>
+              </div>
+              <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white">บ่าย (บ) 16:00 - 24:00</span>
+                  <span class="text-xs font-bold text-amber-800" id="countDutyA">0 คน</span>
+                </div>
+                <ul id="listDutyA" class="space-y-0.5 text-xs text-slate-700 min-h-[40px]"></ul>
+              </div>
+              <div class="p-3 rounded-xl bg-pink-50/70 border border-pink-200">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-pink-500 text-white">ดึก (ด) 00:00 - 08:00</span>
+                  <span class="text-xs font-bold text-pink-800" id="countDutyN">0 คน</span>
+                </div>
+                <ul id="listDutyN" class="space-y-0.5 text-xs text-slate-700 min-h-[40px]"></ul>
+              </div>
+              <div class="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-500 text-white">On Call / พิเศษ</span>
+                  <span class="text-xs font-bold text-purple-800" id="countDutyOther">0 คน</span>
+                </div>
+                <ul id="listDutyOther" class="space-y-0.5 text-xs text-slate-700 min-h-[40px]"></ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
+              <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">จำนวนเวรแต่ละประเภทประจำเดือนนี้</h3>
+              <div class="h-56 relative"><canvas id="chartShiftsByType"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
+              <h3 class="text-xs font-bold text-slate-700 uppercase mb-2">สัดส่วนเวรและวันหยุด</h3>
+              <div class="h-44 relative"><canvas id="chartShiftProportion"></canvas></div>
+              <div id="chartLegendCustom" class="grid grid-cols-2 gap-1 mt-3 text-[11px] text-slate-600"></div>
+            </div>
+          </div>
+
+          <!-- Heatmap -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+              <h3 class="text-xs font-bold text-slate-700 uppercase">Heatmap อัตราความครอบคลุมเวรประจำวัน (Coverage Rate)</h3>
+              <div class="flex items-center space-x-2 text-[11px]">
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-emerald-500"></span><span>&ge; 8 คน</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-amber-400"></span><span>6-7 คน</span></span>
+                <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-rose-500"></span><span>&lt; 6 คน</span></span>
+              </div>
+            </div>
+            <div id="heatmapGrid" class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-16 gap-1 pt-2"></div>
+          </div>
+
+          <!-- Individual Workload Balance Table -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
+            <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">ภาระงานรายบุคคลประจำเดือนนี้ (Individual Workload)</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-500 text-[11px] uppercase">
+                    <th class="py-2 px-2">ชื่อพยาบาล</th>
+                    <th class="py-2 px-1 text-center">เช้า (ช)</th>
+                    <th class="py-2 px-1 text-center">บ่าย (บ)</th>
+                    <th class="py-2 px-1 text-center">ดึก (ด)</th>
+                    <th class="py-2 px-1 text-center font-bold">รวมเวร</th>
+                    <th class="py-2 px-1 text-center">วันหยุด</th>
+                    <th class="py-2 px-1 text-center">วันลา</th>
+                    <th class="py-2 px-2 text-left">ความสมดุลภาระงาน</th>
+                  </tr>
+                </thead>
+                <tbody id="workloadTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: ROSTER MATRIX -->
+        <section id="section-roster" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ตารางจัดเวรพยาบาล ER ประจำเดือน</h1>
+              <p class="text-xs text-slate-500">จัดตารางอัตโนมัติหรือคลิกแก้ไขเวรรายบุคคล</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
+                <button onclick="changeRosterMonth(-1)" class="p-1 px-2 hover:bg-white rounded"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="rosterMonthYearLabel" class="font-bold px-2 text-center min-w-[110px]">กันยายน 2026</span>
+                <button onclick="changeRosterMonth(1)" class="p-1 px-2 hover:bg-white rounded"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+              <button id="btnOpenAutoScheduleModal" onclick="openAutoScheduleModal()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-teal-600 text-white text-xs font-medium shadow-xs flex items-center space-x-1.5"><i class="fa-solid fa-wand-magic-sparkles"></i><span>จัดตารางอัตโนมัติ</span></button>
+              <button id="btnClearRoster" onclick="confirmClearRoster()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-medium border border-slate-200 flex items-center space-x-1"><i class="fa-solid fa-trash-can"></i><span>ล้างตารางเดือนนี้</span></button>
+              <button onclick="exportRosterToExcel()" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200 flex items-center space-x-1"><i class="fa-solid fa-file-excel"></i><span>Excel</span></button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div class="overflow-x-auto max-h-[72vh]">
+              <table id="rosterMatrixTable" class="w-full text-center text-xs border-collapse">
+                <thead class="sticky top-0 bg-slate-100 z-10 border-b border-slate-200" id="rosterMatrixHeader"></thead>
+                <tbody id="rosterMatrixBody" class="divide-y divide-slate-200"></tbody>
+                <tfoot id="rosterMatrixFooter" class="sticky bottom-0 bg-slate-100 z-10 font-bold border-t border-slate-300"></tfoot>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: MY SCHEDULE -->
+        <section id="section-myschedule" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ตารางเวรของฉัน (My Schedule)</h1>
+              <p class="text-xs text-slate-500" id="myScheduleSubtitle">ตรวจสอบเวรปฏิบัติงานส่วนบุคคลและภาพรวมแผนก</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Month navigation -->
+              <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
+                <button type="button" onclick="changeRosterMonth(-1)" class="p-1 px-2 hover:bg-white rounded" title="เดือนก่อนหน้า"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="myScheduleMonthYearLabel" class="font-bold px-2 text-center min-w-[105px]">กันยายน 2026</span>
+                <button type="button" onclick="changeRosterMonth(1)" class="p-1 px-2 hover:bg-white rounded" title="เดือนถัดไป"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+              <!-- Staff Switcher (Shown for Supervisor/Admin) -->
+              <div id="myScheduleStaffSelectContainer" class="hidden items-center text-xs">
+                <select id="myScheduleStaffSelect" onchange="changeMyScheduleStaff(this.value)" class="py-1 px-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 outline-none"></select>
+              </div>
+              <!-- Mode Tabs -->
+              <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs">
+                <button id="btnMyViewPersonal" onclick="setMyScheduleMode('personal')" class="px-3 py-1 rounded-lg font-bold bg-white shadow-xs text-sky-700">เฉพาะของฉัน</button>
+                <button id="btnMyViewTeam" onclick="setMyScheduleMode('team')" class="px-3 py-1 rounded-lg font-medium text-slate-600 hover:text-slate-800">ดูรวมทั้งแผนก</button>
+              </div>
+            </div>
+          </div>
+          <div id="myNextShiftBanner" class="p-4 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-600 text-white shadow-md flex items-center justify-between">
+            <div>
+              <span class="text-xs text-sky-100" id="myNextShiftSub">เวรปฏิบัติงานของคุณ</span>
+              <h3 class="text-lg font-bold" id="myNextShiftText">กำลังประมวลผลข้อมูล...</h3>
+            </div>
+            <button onclick="openSwapRequestModal()" class="px-3 py-1.5 rounded-xl bg-white text-sky-800 font-bold text-xs hover:bg-sky-50 shadow-xs"><i class="fa-solid fa-repeat mr-1"></i>ขอแลกเวร</button>
+          </div>
+          <div class="grid grid-cols-4 gap-2">
+            <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-[10px] text-slate-400">เวรทั้งหมด</span><p class="text-lg font-bold text-slate-800 mt-0.5" id="myStatsTotalShifts">0</p></div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-[10px] text-emerald-600">เช้า (ช)</span><p class="text-lg font-bold text-emerald-600 mt-0.5" id="myStatsM">0</p></div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-[10px] text-amber-600">บ่าย (บ)</span><p class="text-lg font-bold text-amber-600 mt-0.5" id="myStatsA">0</p></div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-[10px] text-pink-600">ดึก (ด)</span><p class="text-lg font-bold text-pink-600 mt-0.5" id="myStatsN">0</p></div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-xs font-bold text-slate-800 mb-3" id="myCalendarTitle">ปฏิทินเวรของฉัน</h3>
+            <div class="grid grid-cols-7 gap-1.5" id="myCalendarGrid"></div>
+          </div>
+        </section>
+
+        <!-- SECTION: LEAVES -->
+        <section id="section-leaves" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ระบบบันทึกและการอนุมัติการลา (Leave Management)</h1>
+              <p class="text-xs text-slate-500">ยื่นคำขอลาและตรวจสอบสถานะการอนุมัติการลา</p>
+            </div>
+            <button onclick="openLeaveRequestModal()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-xs"><i class="fa-solid fa-plus mr-1"></i>ยื่นคำขอลา</button>
+          </div>
+          <div id="leavesHeadApprovalContainer" class="bg-amber-50/50 rounded-2xl border border-amber-200 p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-900"><i class="fa-solid fa-hourglass-half mr-1"></i> คำขอรอดำเนินการอนุมัติ (สำหรับหัวหน้าพยาบาล / แอดมิน)</span>
+              <span id="pendingLeavesCountBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">0 รายการ</span>
+            </div>
+            <div id="pendingLeavesList" class="space-y-2"></div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">ประวัติการยื่นคำขอลาทั้งหมด</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-500 text-[11px]">
+                    <th class="py-2 px-2">เลขที่</th>
+                    <th class="py-2 px-2">ผู้ขอลา</th>
+                    <th class="py-2 px-2">ประเภทการลา</th>
+                    <th class="py-2 px-2">ช่วงวันที่ลา</th>
+                    <th class="py-2 px-1 text-center">จำนวนวัน</th>
+                    <th class="py-2 px-2">เหตุผล</th>
+                    <th class="py-2 px-2 text-center">สถานะ</th>
+                    <th class="py-2 px-2 text-center">ผู้อนุมัติ</th>
+                    <th class="py-2 px-2 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="leavesTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: SHIFT SWAP -->
+        <section id="section-swaps" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ระบบแลกเวร 2 ขั้นตอน (2-Step Shift Swap)</h1>
+              <p class="text-xs text-slate-500">1. เพื่อนร่วมงานตอบรับ &rarr; 2. หัวหน้าพยาบาลอนุมัติและปรับตารางอัตโนมัติ</p>
+            </div>
+            <button onclick="openSwapRequestModal()" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs shadow-xs"><i class="fa-solid fa-repeat mr-1"></i>ขอแลกเวร</button>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-xs font-bold text-slate-700 uppercase mb-2">คำขอแลกเวรที่ต้องดำเนินการ</h3>
+            <div id="swapMyActionsContainer" class="space-y-2"></div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">ประวัติการแลกเวรทั้งหมด</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-500 text-[11px]">
+                    <th class="py-2 px-2">เลขที่</th>
+                    <th class="py-2 px-2">ผู้ขอแลก</th>
+                    <th class="py-2 px-2">เวรเดิม</th>
+                    <th class="py-2 px-2">แลกกับ</th>
+                    <th class="py-2 px-2">เวรเป้าหมาย</th>
+                    <th class="py-2 px-2">เหตุผล</th>
+                    <th class="py-2 px-1 text-center">พยาบาลตอบรับ</th>
+                    <th class="py-2 px-1 text-center">หัวหน้าอนุมัติ</th>
+                    <th class="py-2 px-2 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="swapsTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: STAFF -->
+        <section id="section-staff" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ทำเนียบบุคลากรพยาบาล ER (Staff Directory)</h1>
+              <p class="text-xs text-slate-500">ทำเนียบและข้อมูลบุคลากรพยาบาลกลุ่มงานอุบัติเหตุและฉุกเฉิน</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="text" id="staffSearchInput" oninput="filterStaffCards()" placeholder="ค้นหาชื่อ, รหัส, ตำแหน่ง..." class="pl-3 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs w-48 outline-none focus:ring-2 focus:ring-sky-500">
+              <select id="staffRoleFilter" onchange="filterStaffCards()" class="py-1.5 px-2.5 rounded-xl border border-slate-200 text-xs bg-white outline-none">
+                <option value="ALL">สิทธิ์ทั้งหมด (All Roles)</option>
+                <option value="nurse">พยาบาล</option>
+                <option value="nurse_assistant">ผู้ช่วยเหลือพยาบาล</option>
+                <option value="patient_assistant">ผู้ช่วยเหลือคนไข้</option>
+                <option value="head_nurse">หัวหน้าพยาบาล</option>
+                <option value="admin">ผู้ดูแลระบบ</option>
+              </select>
+              <select id="staffStatusFilter" onchange="filterStaffCards()" class="py-1.5 px-2.5 rounded-xl border border-slate-200 text-xs bg-white outline-none">
+                <option value="ALL">สถานะทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ลาเรียน">ลาเรียน</option><option value="บวช">บวช</option><option value="ไม่ขึ้นเวร">ไม่ขึ้นเวร</option>
+              </select>
+              <button id="btnAddStaffModal" onclick="openStaffModal(null)" class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs"><i class="fa-solid fa-user-plus mr-1"></i>เพิ่มบุคลากรใหม่</button>
+            </div>
+          </div>
+          <div id="staffCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"></div>
+        </section>
+
+        <!-- SECTION: SHIFTS & HOLIDAYS -->
+        <section id="section-shifts" class="hidden space-y-5">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-2">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-800">ประเภทเวรและเกณฑ์ขั้นต่ำ (Shift Types)</h2>
+                  <p class="text-[11px] text-slate-500">กำหนดรหัสเวร สี และเวลาทำงาน</p>
+                </div>
+                <span id="shiftTypesReadOnlyBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium"><i class="fa-solid fa-lock text-[9px] mr-1"></i>ดูได้อย่างเดียว</span>
+              </div>
+              <button id="btnAddShiftTypeModal" onclick="openShiftTypeModal(null)" class="px-2.5 py-1 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium"><i class="fa-solid fa-plus mr-1"></i>เพิ่มประเภทเวร</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-500 text-[11px]">
+                    <th class="py-2 px-2">รหัส</th>
+                    <th class="py-2 px-2">ชื่อเวร</th>
+                    <th class="py-2 px-1 text-center">ตัวย่อ</th>
+                    <th class="py-2 px-2 text-center">สี</th>
+                    <th class="py-2 px-2">เวลา</th>
+                    <th class="py-2 px-1 text-center">ขั้นต่ำ</th>
+                    <th class="py-2 px-1 text-center">OT</th>
+                    <th class="py-2 px-2 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="shiftTypesTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-2">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-800">วันหยุดราชการ / นักขัตฤกษ์ (Holidays)</h2>
+                  <p class="text-[11px] text-slate-500">กำหนดวันหยุดราชการและวันหยุดนักขัตฤกษ์</p>
+                </div>
+                <span id="holidaysReadOnlyBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium"><i class="fa-solid fa-lock text-[9px] mr-1"></i>ดูได้อย่างเดียว</span>
+              </div>
+              <button id="btnAddHolidayModal" onclick="openHolidayModal(null)" class="px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium"><i class="fa-solid fa-plus mr-1"></i>เพิ่มวันหยุด</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-200 text-slate-500 text-[11px]">
+                    <th class="py-2 px-2">วันที่</th>
+                    <th class="py-2 px-2">ชื่อวันหยุด</th>
+                    <th class="py-2 px-2">รายละเอียด</th>
+                    <th class="py-2 px-2 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="holidaysTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: REPORTS -->
+        <section id="section-reports" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">รายงานตารางเวรและสถิติ (Reports & Analytics)</h1>
+              <p class="text-xs text-slate-500">ส่งออกเป็น PDF (ขนาด A4 แนวนอน พร้อมลายเซ็น) หรือ Excel</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="exportReportToPDF()" class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs"><i class="fa-solid fa-file-pdf mr-1"></i>ส่งออก PDF (A4)</button>
+              <button onclick="exportRosterToExcel()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs"><i class="fa-solid fa-file-excel mr-1"></i>ส่งออก Excel</button>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 border-b border-slate-200 text-xs font-semibold">
+            <button onclick="switchReportTab('matrix')" id="tabRepMatrix" class="pb-2 px-3 text-sky-700 border-b-2 border-sky-600">ตารางเวรประจำเดือน</button>
+            <button onclick="switchReportTab('workload')" id="tabRepWorkload" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent">สถิติการปฏิบัติงาน & OT</button>
+          </div>
+          <div id="printArea" class="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
+            <div class="text-center border-b-2 border-sky-800 pb-3">
+              <div class="flex items-center justify-center space-x-2 mb-1">
+                <img id="reportLogo" src="https://img.icons8.com/color/96/hospital-room.png" class="w-10 h-10 object-contain">
+                <div>
+                  <h2 class="text-base font-bold text-slate-900" id="reportHospitalName">โรงพยาบาลสังขละบุรี</h2>
+                  <p class="text-[11px] text-slate-700 font-medium" id="reportDeptName">กลุ่มงานการพยาบาลผู้ป่วยอุบัติเหตุและฉุกเฉิน (ER)</p>
+                </div>
+              </div>
+              <h3 class="text-xs font-bold text-sky-900 mt-1" id="reportDocumentTitle">ตารางเวรปฏิบัติงานพยาบาลวิชาชีพ</h3>
+            </div>
+            <div id="reportDynamicTableWrapper" class="overflow-x-auto"></div>
+            <div class="pt-6 grid grid-cols-3 gap-4 text-center text-xs text-slate-700">
+              <div class="space-y-4"><p class="font-bold">ผู้จัดทำตารางเวร</p><div class="h-8 border-b border-slate-400 mx-4"></div><p id="signPreparedBy">(พว.สุดารัตน์ ใจดี)</p></div>
+              <div class="space-y-4"><p class="font-bold">ผู้ตรวจสอบ</p><div class="h-8 border-b border-slate-400 mx-4"></div><p id="signCheckedBy">(พว.สมหญิง วงศ์สว่าง)</p></div>
+              <div class="space-y-4"><p class="font-bold">ผู้อนุมัติ</p><div class="h-8 border-b border-slate-400 mx-4"></div><p id="signApprovedBy">(นพ.ผู้อำนวยการ)</p></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: NOTIFICATIONS -->
+        <section id="section-notifications" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ศูนย์การแจ้งเตือน (Notifications Center)</h1>
+              <p class="text-xs text-slate-500">คลิกรายการแจ้งเตือนเพื่อนำทางไปยังเมนูที่เกี่ยวข้อง และทำเครื่องหมายว่าอ่านแล้วทันที (สัญลักษณ์สีแดงจะหายไป)</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button type="button" onclick="markAllNotificationsAsRead()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-sky-50 text-slate-700 hover:text-sky-700 text-xs font-semibold transition flex items-center space-x-1.5 shadow-xs">
+                <i class="fa-solid fa-check-double text-sky-600"></i><span>อ่านแล้วทั้งหมด</span>
+              </button>
+              <button type="button" onclick="clearAllNotifications()" class="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-rose-50 text-slate-700 hover:text-rose-600 text-xs font-semibold transition flex items-center space-x-1.5 shadow-xs">
+                <i class="fa-solid fa-trash-can text-rose-500"></i><span>ล้างทั้งหมด</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5">
+            <div id="fullNotificationList" class="space-y-3"></div>
+          </div>
+        </section>
+
+        <!-- SECTION: SETTINGS -->
+        <section id="section-settings" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-bold text-slate-800">ตั้งค่าระบบ (Settings)</h1>
+              <p class="text-xs text-slate-500">จัดการข้อมูลโรงพยาบาลและฐานข้อมูล (สิทธิ์ Admin เท่านั้น)</p>
+            </div>
+          </div>
+
+          <!-- Supabase Database Connection Card (Admin Only) -->
+          <div class="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 rounded-2xl border border-emerald-200 p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div class="space-y-1">
+              <div class="flex items-center space-x-2">
+                <span class="p-2 rounded-xl bg-emerald-100 text-emerald-700 text-sm"><i class="fa-solid fa-database"></i></span>
+                <h2 class="text-sm font-bold text-slate-800">การเชื่อมต่อฐานข้อมูล & โครงสร้างตาราง SQL</h2>
+              </div>
+              <p class="text-xs text-slate-600">กำหนด Database URL, API Key ทดสอบการเชื่อมต่อ และดาวน์โหลด/คัดลอก SQL Schema</p>
+            </div>
+            <button type="button" onclick="openSupabaseConfigModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5 shrink-0">
+              <i class="fa-solid fa-gear mr-1"></i><span>ตั้งค่าฐานข้อมูล & SQL</span>
+            </button>
+          </div>
+
+          <form id="settingsForm" onsubmit="handleSaveSettings(event)" class="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 text-xs">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อระบบ</label><input type="text" id="setting_system_name" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อโรงพยาบาล</label><input type="text" id="setting_hospital_name" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อหน่วยงาน / แผนก</label><input type="text" id="setting_department_name" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">URL โลโก้</label><input type="url" id="setting_logo_url" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div class="md:col-span-2"><label class="block font-semibold text-slate-600 mb-1">ที่อยู่โรงพยาบาล</label><input type="text" id="setting_address" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">เบอร์โทรศัพท์</label><input type="text" id="setting_phone" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อผู้จัดทำ</label><input type="text" id="setting_prepared_by" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อผู้ตรวจสอบ</label><input type="text" id="setting_checked_by" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+              <div><label class="block font-semibold text-slate-600 mb-1">ชื่อผู้อนุมัติ</label><input type="text" id="setting_approved_by" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+            </div>
+            <div class="flex justify-end pt-3 border-t border-slate-100">
+              <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-medium"><i class="fa-solid fa-floppy-disk mr-1"></i>บันทึกการตั้งค่า</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- SECTION: PROFILE -->
+        <section id="section-profile" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs"><h1 class="text-lg font-bold text-slate-800">โปรไฟล์ส่วนตัว (User Profile)</h1></div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 text-center">
+              <div class="w-20 h-20 mx-auto mb-3 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-3xl font-bold border-2 border-sky-200"><i class="fa-solid fa-user-nurse"></i></div>
+              <h3 class="font-bold text-slate-800 text-sm" id="profileFullName">-</h3>
+              <p class="text-sky-600 font-medium" id="profileRoleText">พยาบาลวิชาชีพ</p>
+              <div class="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-left">
+                <div class="flex justify-between"><span class="text-slate-400">รหัส:</span><span class="font-bold font-mono" id="profileStaffId">ER00000</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">ตำแหน่ง:</span><span id="profilePosition">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">ระดับ:</span><span id="profileLevel">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">สถานะ:</span><span class="text-emerald-600 font-semibold" id="profileStatus">-</span></div>
+              </div>
+            </div>
+            <div class="md:col-span-2 space-y-4">
+              <div class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+                <h3 class="font-bold text-slate-700 uppercase">อัปเดตเบอร์โทรศัพท์</h3>
+                <div class="flex gap-2">
+                  <input type="text" id="profilePhoneInput" class="flex-1 p-2 rounded-xl border border-slate-200 outline-none">
+                  <button onclick="handleUpdateProfilePhone()" class="px-3 py-2 bg-teal-600 text-white rounded-xl font-medium">บันทึกเบอร์</button>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                <h3 class="font-bold text-slate-700 uppercase mb-3">เปลี่ยนรหัสผ่าน</h3>
+                <form onsubmit="handleChangePassword(event)" class="space-y-3">
+                  <div><label class="block text-slate-600 mb-1">รหัสผ่านเดิม</label><input type="password" id="profileOldPass" required class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+                  <div><label class="block text-slate-600 mb-1">รหัสผ่านใหม่</label><input type="password" id="profileNewPass" required minlength="4" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+                  <div><label class="block text-slate-600 mb-1">ยืนยันรหัสผ่านใหม่</label><input type="password" id="profileConfirmPass" required minlength="4" class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+                  <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-xl font-medium">เปลี่ยนรหัสผ่าน</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODALS CONTAINER -->
+
+  <!-- MODAL: SUPABASE CONFIGURATION & SQL SCRIPT -->
+  <div id="modalSupabaseConfig" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div class="flex items-center space-x-2 text-emerald-700 font-bold text-sm">
+          <i class="fa-solid fa-database text-lg"></i>
+          <span>ตั้งค่าการเชื่อมต่อฐานข้อมูล & โครงสร้างตาราง (SQL)</span>
+        </div>
+        <button onclick="closeModal('modalSupabaseConfig')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-base"></i></button>
+      </div>
+
+      <div class="flex space-x-2 border-b border-slate-200 pb-1">
+        <button type="button" id="tabBtnSbConnect" onclick="switchSbModalTab('connect')" class="px-3 py-1 font-bold text-emerald-700 border-b-2 border-emerald-600">เชื่อมต่อ API</button>
+        <button type="button" id="tabBtnSbSql" onclick="switchSbModalTab('sql')" class="px-3 py-1 font-medium text-slate-500 hover:text-slate-700">ดูโค้ด SQL สร้างตาราง (SQL Script)</button>
+      </div>
+
+      <div id="tabSbConnect" class="space-y-3">
+        <p class="text-slate-600 leading-relaxed">
+          นำ <strong>Project URL</strong> และ <strong>anon public API key</strong> จาก Cloud Database Dashboard (เข้าที่ <em>Project Settings &rarr; API</em>) มาวางที่นี่เพื่อทำการเชื่อมต่อและซิงค์ข้อมูล:
+        </p>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Database Project URL</label>
+          <input type="url" id="inputSbUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" class="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-[11px]">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Database Anon Public Key</label>
+          <input type="text" id="inputSbKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-[11px]">
+        </div>
+        <div id="sbConnectResult" class="hidden p-3 rounded-xl text-xs"></div>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+          <button type="button" onclick="resetSupabaseConfig()" class="text-rose-600 hover:underline">ใช้ข้อมูลจำลอง (Reset to Demo)</button>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="closeModal('modalSupabaseConfig')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ปิด</button>
+            <button type="button" onclick="saveAndTestSupabaseConfig()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl shadow-xs"><i class="fa-solid fa-plug mr-1"></i>บันทึกและเชื่อมต่อ</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="tabSbSql" class="hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-slate-600">คัดลอกคำสั่ง SQL นี้ไปวางใน <strong>SQL Editor</strong> แล้วกด <strong>Run</strong> เพื่อสร้างตารางทั้งหมด:</p>
+          <div class="flex space-x-2 shrink-0">
+            <button type="button" onclick="downloadSbSqlFile()" class="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-lg"><i class="fa-solid fa-download mr-1"></i>ดาวน์โหลด .sql</button>
+            <button type="button" onclick="copySbSqlScript()" class="px-3 py-1 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded-lg"><i class="fa-solid fa-copy mr-1"></i>คัดลอก SQL</button>
+          </div>
+        </div>
+        <textarea id="sbSqlScriptContent" readonly rows="13" class="w-full p-3 font-mono text-[11px] bg-slate-900 text-emerald-300 rounded-xl border border-slate-700 outline-none select-all"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AUTO SCHEDULE -->
+  <div id="modalAutoSchedule" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-wand-magic-sparkles text-sky-600 mr-1.5"></i>จัดตารางเวรอัตโนมัติ (AI Scheduler)</h3>
+        <button onclick="closeModal('modalAutoSchedule')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-base"></i></button>
+      </div>
+      <p class="text-slate-500">ระบบจะจัดตารางโดยพิจารณา: จำนวนพยาบาลขั้นต่ำต่อเวร, พัก 16 ชม. หลังเวรดึก (ห้ามต่อเช้า), ไม่ขึ้นเวรเกินกำหนด และตรวจสอบวันลาที่อนุมัติแล้ว</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block font-semibold text-slate-600 mb-1">ขั้นต่ำเวรเช้า (ช)/วัน</label><input type="number" id="autoMinMorning" min="1" max="10" value="3" class="w-full p-2 rounded-xl border border-slate-200"></div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ขั้นต่ำเวรบ่าย (บ)/วัน</label><input type="number" id="autoMinAfternoon" min="1" max="10" value="3" class="w-full p-2 rounded-xl border border-slate-200"></div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ขั้นต่ำเวรดึก (ด)/วัน</label><input type="number" id="autoMinNight" min="1" max="10" value="2" class="w-full p-2 rounded-xl border border-slate-200"></div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ไม่ขึ้นเวรติดกันเกิน (วัน)</label><input type="number" id="autoMaxConsecutive" min="2" max="10" value="5" class="w-full p-2 rounded-xl border border-slate-200"></div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+        <button onclick="closeModal('modalAutoSchedule')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+        <button onclick="executeAutoSchedule()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-xl shadow-xs"><i class="fa-solid fa-play mr-1"></i>เริ่มจัดตารางอัตโนมัติ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT CELL SHIFT (เพิ่ม / แก้ไข / ลบ เวรรายวัน) -->
+  <div id="modalEditShiftCell" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm">กำหนดเวรประจำวัน</h3>
+        <button onclick="closeModal('modalEditShiftCell')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+        <div class="flex justify-between"><span class="text-slate-500">วันที่:</span><span id="cellEditDate" class="font-mono font-bold text-slate-700">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">พยาบาล:</span><span id="cellEditNurseName" class="font-semibold text-sky-800">-</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">เวรปัจจุบัน:</span><span id="cellEditCurrentShift" class="font-bold">-</span></div>
+      </div>
+
+      <div id="cellShiftOverLimitWarning" class="hidden p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-700 text-[11px] font-semibold flex items-start space-x-2">
+        <i class="fa-solid fa-triangle-exclamation text-rose-600 mt-0.5 shrink-0 text-sm"></i>
+        <span><strong>คำเตือน:</strong> เลือกเวรเกิน 2 กะ/วัน (มาตรฐานความปลอดภัยภาระงานพยาบาล ER กำหนดไม่เกิน 2 กะ/วัน)</span>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="font-semibold text-slate-700">เลือกประเภทเวร (คลิกเลือก/สลับเวร):</label>
+          <span id="cellSelectedShiftCountBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">0 กะ</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2" id="cellShiftPickerOptions"></div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] text-slate-500 mb-1">หมายเหตุ</label>
+        <input type="text" id="cellEditNote" placeholder="เช่น ควงเวร, เวรเสริม, สลับเวร" class="w-full p-2 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-sky-500">
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <button type="button" onclick="saveCellShift('DELETE')" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-medium">
+          <i class="fa-solid fa-trash-can mr-1"></i>ล้างเวร
+        </button>
+        <div class="flex space-x-2">
+          <button type="button" onclick="closeModal('modalEditShiftCell')" class="px-3 py-1.5 border border-slate-200 rounded-xl text-slate-600 text-xs font-medium">ยกเลิก</button>
+          <button type="button" onclick="confirmSaveMultiCellShift()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-medium shadow-xs">
+            <i class="fa-solid fa-check mr-1"></i>บันทึกเวร
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD/EDIT/DELETE STAFF -->
+  <div id="modalStaff" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm" id="staffModalTitle">เพิ่มข้อมูลบุคลากร</h3>
+        <button onclick="closeModal('modalStaff')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="staffForm" onsubmit="handleSaveStaff(event)" class="space-y-3">
+        <input type="hidden" id="staffFormMode" value="add">
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">รหัสพนักงาน (Staff ID) *</label>
+          <input type="text" id="staffFormCode" required class="w-full p-2 rounded-xl border border-slate-200 bg-white font-mono font-bold text-slate-700 outline-none uppercase">
+        </div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ชื่อ-สกุล *</label><input type="text" id="staffFormName" required class="w-full p-2 rounded-xl border border-slate-200 outline-none"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">ตำแหน่ง</label><input type="text" id="staffFormPosition" class="w-full p-2 rounded-xl border border-slate-200"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">ระดับวิชาชีพ</label><input type="text" id="staffFormLevel" class="w-full p-2 rounded-xl border border-slate-200"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">เบอร์โทรศัพท์</label><input type="tel" id="staffFormPhone" class="w-full p-2 rounded-xl border border-slate-200"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">รหัสผ่าน</label><input type="text" id="staffFormPassword" class="w-full p-2 rounded-xl border border-slate-200 font-mono"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">สิทธิ์ (Role)</label><select id="staffFormRole" class="w-full p-2 rounded-xl border border-slate-200 bg-white"><option value="nurse">พยาบาล</option><option value="nurse_assistant">ผู้ช่วยเหลือพยาบาล</option><option value="patient_assistant">ผู้ช่วยเหลือคนไข้</option><option value="head_nurse">หัวหน้าพยาบาล</option><option value="admin">ผู้ดูแลระบบ</option></select></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">สถานะ</label><select id="staffFormStatus" class="w-full p-2 rounded-xl border border-slate-200 bg-white font-medium"><option value="ปกติ">ปกติ (ขึ้นเวร)</option><option value="ลาเรียน">ลาเรียน</option><option value="บวช">บวช</option><option value="ไม่ขึ้นเวร">ไม่ขึ้นเวร</option></select></div>
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+          <button type="button" id="btnDeleteStaffModal" onclick="confirmDeleteStaff()" class="hidden px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-medium"><i class="fa-solid fa-trash-can mr-1"></i>ลบบุคลากร</button>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" onclick="closeModal('modalStaff')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+            <button type="submit" class="px-4 py-1.5 bg-teal-600 text-white rounded-xl font-medium"><i class="fa-solid fa-floppy-disk mr-1"></i>บันทึกข้อมูล</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: REQUEST / EDIT LEAVE -->
+  <div id="modalLeaveRequest" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm" id="leaveModalTitle">ยื่นคำขอลาปฏิบัติงาน</h3>
+        <button onclick="closeModal('modalLeaveRequest')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="leaveRequestForm" onsubmit="handleLeaveSubmit(event)" class="space-y-3">
+        <input type="hidden" id="leaveEditId" value="">
+        <div id="leaveStaffSelectContainer" class="hidden">
+          <label class="block font-semibold text-slate-600 mb-1">บุคลากรผู้ขอลา (สำหรับหัวหน้าพยาบาล / ผู้ดูแลระบบ) *</label>
+          <select id="leaveStaffSelect" class="w-full p-2 rounded-xl border border-slate-200 bg-white font-medium"></select>
+        </div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ประเภทการลา *</label><select id="leaveTypeSelect" required class="w-full p-2 rounded-xl border border-slate-200 bg-white"><option value="ลากิจ">ลากิจ</option><option value="ลาป่วย">ลาป่วย</option><option value="ลาพักร้อน">ลาพักร้อน</option><option value="ลาคลอด">ลาคลอด</option><option value="ลาอุปสมบท">ลาอุปสมบท</option><option value="อื่นๆ">อื่นๆ</option></select></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">ตั้งแต่วันที่ *</label><input type="date" id="leaveStartDate" required class="w-full p-2 rounded-xl border border-slate-200"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">ถึงวันที่ *</label><input type="date" id="leaveEndDate" required class="w-full p-2 rounded-xl border border-slate-200"></div>
+        </div>
+        <div><label class="block font-semibold text-slate-600 mb-1">เหตุผลการลา</label><textarea id="leaveReason" rows="2" class="w-full p-2 rounded-xl border border-slate-200"></textarea></div>
+        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal('modalLeaveRequest')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium"><i class="fa-solid fa-paper-plane mr-1"></i>ส่งคำขอลา</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: REQUEST SHIFT SWAP -->
+  <div id="modalSwapRequest" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-repeat text-rose-600 mr-1.5"></i>ขอแลกเวร</h3>
+        <button onclick="closeModal('modalSwapRequest')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="swapRequestForm" onsubmit="handleSwapSubmit(event)" class="space-y-3">
+        <div id="swapRequesterStaffContainer" class="hidden p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+          <label class="font-bold text-slate-800 block mb-1 text-xs">ผู้ขอแลกเวร (สำหรับหัวหน้าพยาบาล / ผู้ดูแลระบบ):</label>
+          <select id="swapRequesterStaff" class="w-full p-1.5 rounded-lg border border-slate-200 bg-white font-medium"></select>
+        </div>
+        <div class="p-2.5 bg-sky-50 rounded-xl border border-sky-200">
+          <span class="font-bold text-sky-900 block mb-1">1. เวรของคุณที่ต้องการแลก:</span>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-slate-600 mb-1 block">วันที่</label><input type="date" id="swapReqDate" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
+            <div><label class="text-slate-600 mb-1 block">กะเวร</label><select id="swapReqShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
+          </div>
+        </div>
+        <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200">
+          <span class="font-bold text-rose-900 block mb-1">2. เพื่อนร่วมงานที่ต้องการแลกด้วย:</span>
+          <div class="mb-2"><select id="swapTargetStaff" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></select></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-slate-600 mb-1 block">วันที่ของเพื่อน</label><input type="date" id="swapTargetDate" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
+            <div><label class="text-slate-600 mb-1 block">กะของเพื่อน</label><select id="swapTargetShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
+          </div>
+        </div>
+        <div><label class="block font-semibold text-slate-600 mb-1">เหตุผล</label><input type="text" id="swapReason" class="w-full p-2 rounded-xl border border-slate-200"></div>
+        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal('modalSwapRequest')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 bg-rose-600 text-white rounded-xl font-medium"><i class="fa-solid fa-paper-plane mr-1"></i>ส่งคำขอแลกเวร</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT / DELETE SHIFT TYPE -->
+  <div id="modalShiftType" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm" id="shiftTypeModalTitle">กำหนดประเภทเวร</h3>
+        <button onclick="closeModal('modalShiftType')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="shiftTypeForm" onsubmit="handleSaveShiftType(event)" class="space-y-2.5">
+        <input type="hidden" id="stOriginalCode" value="">
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">รหัส (Code) *</label><input type="text" id="stCode" required class="w-full p-1.5 rounded-xl border border-slate-200 uppercase font-mono"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">ตัวย่อ *</label><input type="text" id="stShort" required class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        </div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ชื่อเวรเต็ม *</label><input type="text" id="stName" required class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">สีเวร</label><input type="color" id="stColor" value="#10b981" class="w-full h-8 p-0.5 rounded-xl border border-slate-200 cursor-pointer"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">ขั้นต่ำ (คน)</label><input type="number" id="stMin" min="0" value="3" class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block font-semibold text-slate-600 mb-1">เวลาเริ่ม</label><input type="time" id="stStartTime" value="08:00" class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+          <div><label class="block font-semibold text-slate-600 mb-1">เวลาสิ้นสุด</label><input type="time" id="stEndTime" value="16:00" class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        </div>
+        <label class="flex items-center space-x-2"><input type="checkbox" id="stIsOT" class="w-3.5 h-3.5 text-sky-600 rounded"><span class="font-medium text-slate-700">นับเป็นเวรล่วงเวลา (OT)</span></label>
+        <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+          <button type="button" id="btnDeleteShiftType" onclick="confirmDeleteShiftType()" class="hidden px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-medium"><i class="fa-solid fa-trash-can mr-1"></i>ลบเวรนี้</button>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" onclick="closeModal('modalShiftType')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+            <button type="submit" class="px-4 py-1.5 bg-sky-600 text-white rounded-xl font-medium"><i class="fa-solid fa-floppy-disk mr-1"></i>บันทึกข้อมูล</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT / DELETE HOLIDAY -->
+  <div id="modalHoliday" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-5 space-y-3 text-xs">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm" id="holidayModalTitle">จัดการวันหยุด</h3>
+        <button onclick="closeModal('modalHoliday')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="holidayForm" onsubmit="handleSaveHoliday(event)" class="space-y-2.5">
+        <input type="hidden" id="hEditId" value="">
+        <div><label class="block font-semibold text-slate-600 mb-1">วันที่ *</label><input type="date" id="hDate" required class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        <div><label class="block font-semibold text-slate-600 mb-1">ชื่อวันหยุด *</label><input type="text" id="hName" required class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        <div><label class="block font-semibold text-slate-600 mb-1">รายละเอียด</label><input type="text" id="hDesc" class="w-full p-1.5 rounded-xl border border-slate-200"></div>
+        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal('modalHoliday')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 bg-indigo-600 text-white rounded-xl font-medium"><i class="fa-solid fa-floppy-disk mr-1"></i>บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT (SUPABASE CRUD ENGINE) -->
+  <script type="module" src="./src/roster-app.js"></script>
+</body>
+</html>
