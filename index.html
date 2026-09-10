@@ -451,30 +451,17 @@
           <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h1 class="text-lg font-bold text-slate-800">ตารางเวรของฉัน (My Schedule)</h1>
-              <p class="text-xs text-slate-500" id="myScheduleSubtitle">ตรวจสอบเวรปฏิบัติงานส่วนบุคคลและภาพรวมแผนก</p>
+              <p class="text-xs text-slate-500">ตรวจสอบเวรปฏิบัติงานส่วนบุคคลและภาพรวมแผนก</p>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <!-- Month navigation -->
-              <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
-                <button type="button" onclick="changeRosterMonth(-1)" class="p-1 px-2 hover:bg-white rounded" title="เดือนก่อนหน้า"><i class="fa-solid fa-chevron-left"></i></button>
-                <span id="myScheduleMonthYearLabel" class="font-bold px-2 text-center min-w-[105px]">กันยายน 2026</span>
-                <button type="button" onclick="changeRosterMonth(1)" class="p-1 px-2 hover:bg-white rounded" title="เดือนถัดไป"><i class="fa-solid fa-chevron-right"></i></button>
-              </div>
-              <!-- Staff Switcher (Shown for Supervisor/Admin) -->
-              <div id="myScheduleStaffSelectContainer" class="hidden items-center text-xs">
-                <select id="myScheduleStaffSelect" onchange="changeMyScheduleStaff(this.value)" class="py-1 px-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 outline-none"></select>
-              </div>
-              <!-- Mode Tabs -->
-              <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs">
-                <button id="btnMyViewPersonal" onclick="setMyScheduleMode('personal')" class="px-3 py-1 rounded-lg font-bold bg-white shadow-xs text-sky-700">เฉพาะของฉัน</button>
-                <button id="btnMyViewTeam" onclick="setMyScheduleMode('team')" class="px-3 py-1 rounded-lg font-medium text-slate-600 hover:text-slate-800">ดูรวมทั้งแผนก</button>
-              </div>
+            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs">
+              <button id="btnMyViewPersonal" onclick="setMyScheduleMode('personal')" class="px-3 py-1 rounded-lg font-medium bg-white shadow-xs text-sky-700">เฉพาะของฉัน</button>
+              <button id="btnMyViewTeam" onclick="setMyScheduleMode('team')" class="px-3 py-1 rounded-lg font-medium text-slate-600">ดูรวมทั้งแผนก</button>
             </div>
           </div>
           <div id="myNextShiftBanner" class="p-4 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-600 text-white shadow-md flex items-center justify-between">
             <div>
-              <span class="text-xs text-sky-100" id="myNextShiftSub">เวรปฏิบัติงานของคุณ</span>
-              <h3 class="text-lg font-bold" id="myNextShiftText">กำลังประมวลผลข้อมูล...</h3>
+              <span class="text-xs text-sky-100">เวรในวันพรุ่งนี้ของคุณ</span>
+              <h3 class="text-lg font-bold" id="myNextShiftText">เวรเช้า (08:00 - 16:00 น.)</h3>
             </div>
             <button onclick="openSwapRequestModal()" class="px-3 py-1.5 rounded-xl bg-white text-sky-800 font-bold text-xs hover:bg-sky-50 shadow-xs"><i class="fa-solid fa-repeat mr-1"></i>ขอแลกเวร</button>
           </div>

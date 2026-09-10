@@ -817,9 +817,6 @@ function navigateMenu(menuKey) {
     setTimeout(renderCharts, 100);
   } else if (menuKey === 'reports') {
     renderReports();
-  } else if (menuKey === 'myschedule') {
-    setMyScheduleMode('personal');
-    renderMySchedule();
   }
 }
 
@@ -1082,7 +1079,6 @@ function changeRosterMonth(step) {
   }
   renderRosterMatrix();
   renderDashboard();
-  renderMySchedule();
 }
 
 function renderRosterMatrix() {
@@ -2073,15 +2069,6 @@ async function deleteHoliday(id) {
 function openLeaveRequestModal(editId = null) {
   const idInput = document.getElementById('leaveEditId');
   const u = AppState.currentUser || {};
-  if (editId && u.role === 'head_nurse') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'ไม่มีสิทธิ์แก้ไข',
-      text: 'หัวหน้าพยาบาลมีสิทธิ์เฉพาะอนุมัติหรือไม่อนุมัติเท่านั้น ไม่สามารถแก้ไขคำขอลาได้',
-      confirmButtonColor: '#0284c7'
-    });
-    return;
-  }
   const isHeadOrAdmin = ['admin', 'head_nurse'].includes(u.role);
   const staffContainer = document.getElementById('leaveStaffSelectContainer');
   const staffSelect = document.getElementById('leaveStaffSelect');
@@ -2201,9 +2188,7 @@ async function handleLeaveSubmit(e) {
 }
 
 function renderLeaves() {
-  const curUser = AppState.currentUser || {};
-  const isHead = curUser.role === 'head_nurse';
-  const isAdmin = curUser.role === 'admin';
+  const isHead = AppState.currentUser && ['admin', 'head_nurse'].includes(AppState.currentUser.role);
   const pending = AppState.leaves.filter(l => l.status === 'Pending');
   const pContainer = document.getElementById('leavesHeadApprovalContainer');
   const pList = document.getElementById('pendingLeavesList');
@@ -2230,6 +2215,8 @@ function renderLeaves() {
   }
 
   const tbody = document.getElementById('leavesTableBody');
+  const curUser = AppState.currentUser || {};
+
   tbody.innerHTML = AppState.leaves.map(l => {
     const st = AppState.staffList.find(s => s.staffId === l.staffId) || {};
     const badge = l.status === 'Approved'
@@ -2238,10 +2225,9 @@ function renderLeaves() {
         ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800 font-bold">ปฏิเสธ</span>'
         : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold">รออนุมัติ</span>');
 
-    const isOwner = l.staffId === curUser.staffId;
-    const canEdit = (isOwner && l.status === 'Pending') || isAdmin; // head_nurse cannot edit
-    const canDelete = isOwner || isAdmin; // head_nurse cannot delete
-    const canApprove = isHead && l.status === 'Pending'; // only head_nurse can approve (admin cannot approveแทน)
+    const canEdit = (l.staffId === curUser.staffId && l.status === 'Pending') || ['admin', 'head_nurse'].includes(curUser.role);
+    const canDelete = (l.staffId === curUser.staffId) || ['admin', 'head_nurse'].includes(curUser.role);
+    const canApprove = ['admin', 'head_nurse'].includes(curUser.role) && l.status === 'Pending';
 
     return `<tr class="hover:bg-slate-50 text-xs">
       <td class="py-2 px-2 font-mono text-slate-400">${l.id}</td>
@@ -2266,20 +2252,12 @@ function renderLeaves() {
 
 async function updateLeave(id, status) {
   const curUser = AppState.currentUser || {};
-  if (curUser.role === 'admin') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'ไม่อนุญาตให้อนุมัติแทน',
-      text: 'สิทธิ์การอนุมัติคำขอลาสงวนไว้สำหรับหัวหน้าพยาบาลเท่านั้น (Admin ไม่สามารถอนุมัติแทนได้)',
-      confirmButtonColor: '#0284c7'
-    });
-    return;
-  }
-  if (curUser.role !== 'head_nurse') {
+  const isHead = ['admin', 'head_nurse'].includes(curUser.role);
+  if (!isHead) {
     Swal.fire({
       icon: 'warning',
       title: 'ไม่มีสิทธิ์อนุมัติการลา',
-      text: 'เฉพาะหัวหน้าพยาบาลเท่านั้นที่มีสิทธิ์อนุมัติหรือปฏิเสธคำขอลา',
+      text: 'เจ้าหน้าที่พยาบาลและผู้ช่วยสามารถยื่นและดูคำขอลาได้ แต่ไม่มีสิทธิ์อนุมัติคำขอลา (เฉพาะหัวหน้าพยาบาลและแอดมินเท่านั้น)',
       confirmButtonColor: '#0284c7'
     });
     return;
@@ -2316,16 +2294,6 @@ async function updateLeave(id, status) {
 }
 
 async function deleteLeave(id) {
-  const curUser = AppState.currentUser || {};
-  if (curUser.role === 'head_nurse') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'ไม่มีสิทธิ์ลบ',
-      text: 'หัวหน้าพยาบาลมีสิทธิ์เฉพาะอนุมัติหรือไม่อนุมัติเท่านั้น ไม่สามารถลบคำขอลาได้',
-      confirmButtonColor: '#0284c7'
-    });
-    return;
-  }
   Swal.fire({
     title: 'ยืนยันลบคำขอลา?',
     text: 'รายการขอลานี้จะถูกลบออกจากระบบ',
@@ -2537,8 +2505,7 @@ async function handleSwapSubmit(e) {
 
 function renderSwaps() {
   const u = AppState.currentUser || {};
-  const isHead = u.role === 'head_nurse';
-  const isAdmin = u.role === 'admin';
+  const isHead = ['admin', 'head_nurse'].includes(u.role);
   const getName = id => (AppState.staffList.find(s => s.staffId === id) || {}).fullName || id;
   const actContainer = document.getElementById('swapMyActionsContainer');
 
@@ -2585,7 +2552,7 @@ function renderSwaps() {
   // Swaps history table
   const tbody = document.getElementById('swapsTableBody');
   tbody.innerHTML = AppState.swaps.map(s => {
-    const canCancel = (s.requesterStaffId === u.staffId && s.headStatus === 'Pending') || isAdmin; // head_nurse cannot cancel/delete
+    const canCancel = (s.requesterStaffId === u.staffId && s.headStatus === 'Pending') || isHead;
     const canHeadAct = isHead && s.peerStatus === 'Accepted' && s.headStatus === 'Pending';
 
     const peerBadge = s.peerStatus === 'Accepted'
@@ -2691,20 +2658,12 @@ async function respondPeerSwap(id, status) {
 
 async function approveHeadSwap(id, status) {
   const u = AppState.currentUser || {};
-  if (u.role === 'admin') {
+  const isHead = ['admin', 'head_nurse'].includes(u.role);
+  if (!isHead) {
     Swal.fire({
       icon: 'warning',
-      title: 'ไม่อนุญาตให้อนุมัติแทน',
-      text: 'สิทธิ์การอนุมัติแลกเวรสงวนไว้สำหรับหัวหน้าพยาบาลเท่านั้น (Admin ไม่สามารถอนุมัติแทนได้)',
-      confirmButtonColor: '#0284c7'
-    });
-    return;
-  }
-  if (u.role !== 'head_nurse') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'ไม่มีสิทธิ์อนุมัติแลกเวร',
-      text: 'เฉพาะหัวหน้าพยาบาลเท่านั้นที่มีสิทธิ์อนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลัก',
+      title: 'ไม่มีสิทธิ์อนุมัติขั้นสุดท้าย',
+      text: 'เฉพาะหัวหน้าพยาบาลและผู้ดูแลระบบเท่านั้นที่สามารถอนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลักได้',
       confirmButtonColor: '#0284c7'
     });
     return;
@@ -2803,16 +2762,6 @@ async function approveHeadSwap(id, status) {
 }
 
 async function deleteSwap(id) {
-  const curUser = AppState.currentUser || {};
-  if (curUser.role === 'head_nurse') {
-    Swal.fire({
-      icon: 'warning',
-      title: 'ไม่มีสิทธิ์ลบ',
-      text: 'หัวหน้าพยาบาลมีสิทธิ์เฉพาะอนุมัติหรือไม่อนุมัติเท่านั้น ไม่สามารถลบคำขอแลกเวรได้',
-      confirmButtonColor: '#0284c7'
-    });
-    return;
-  }
   Swal.fire({
     title: 'ยืนยันลบคำขอแลกเวร?',
     text: 'รายการขอแลกเวรนี้จะถูกลบออกจากระบบ',
@@ -2843,34 +2792,19 @@ async function deleteSwap(id) {
 // 10. MY SCHEDULE VIEW
 // --------------------------------------------------------------------------
 function setMyScheduleMode(mode) {
-  AppState.myScheduleMode = mode || 'personal';
-  const btnP = document.getElementById('btnMyViewPersonal');
-  const btnT = document.getElementById('btnMyViewTeam');
-  if (btnP) {
-    btnP.className = AppState.myScheduleMode === 'personal'
-      ? 'px-3 py-1 rounded-lg font-bold bg-white shadow-xs text-sky-700'
-      : 'px-3 py-1 rounded-lg font-medium text-slate-600 hover:text-slate-800';
-  }
-  if (btnT) {
-    btnT.className = AppState.myScheduleMode === 'team'
-      ? 'px-3 py-1 rounded-lg font-bold bg-white shadow-xs text-sky-700'
-      : 'px-3 py-1 rounded-lg font-medium text-slate-600 hover:text-slate-800';
-  }
+  AppState.myScheduleMode = mode;
+  document.getElementById('btnMyViewPersonal').className = mode === 'personal'
+    ? 'px-3 py-1 rounded-lg font-medium bg-white shadow-xs text-sky-700'
+    : 'px-3 py-1 rounded-lg font-medium text-slate-600';
+  document.getElementById('btnMyViewTeam').className = mode === 'team'
+    ? 'px-3 py-1 rounded-lg font-medium bg-white shadow-xs text-sky-700'
+    : 'px-3 py-1 rounded-lg font-medium text-slate-600';
   renderMySchedule();
 }
 
 function renderMySchedule() {
   const u = AppState.currentUser;
   if (!u) return;
-
-  if (!AppState.myScheduleMode) {
-    AppState.myScheduleMode = 'personal';
-  }
-
-  const monthLabel = document.getElementById('myScheduleMonthYearLabel');
-  if (monthLabel) {
-    monthLabel.textContent = `${THAI_MONTHS[AppState.currentMonth]} ${AppState.currentYear}`;
-  }
 
   const myId = u.staffId;
   const myScheds = AppState.schedules.filter(s => s.staffId === myId);
@@ -2879,21 +2813,14 @@ function renderMySchedule() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   const nxt = myScheds.find(s => s.date === tStr);
-  const nextShiftEl = document.getElementById('myNextShiftText');
-  if (nextShiftEl) {
-    nextShiftEl.textContent = (nxt && nxt.shiftCode !== 'OFF')
-      ? `${nxt.shiftName} (วันที่ ${tomorrow.getDate()} ${THAI_MONTHS[tomorrow.getMonth() + 1]})`
-      : 'วันหยุดพักผ่อน (OFF)';
-  }
+  document.getElementById('myNextShiftText').textContent = (nxt && nxt.shiftCode !== 'OFF')
+    ? `${nxt.shiftName} (วันที่ ${tomorrow.getDate()} ${THAI_MONTHS[tomorrow.getMonth() + 1]})`
+    : 'วันหยุดพักผ่อน (OFF)';
 
-  const elTot = document.getElementById('myStatsTotalShifts');
-  const elM = document.getElementById('myStatsM');
-  const elA = document.getElementById('myStatsA');
-  const elN = document.getElementById('myStatsN');
-  if (elTot) elTot.textContent = myScheds.filter(s => ['M', 'A', 'N'].includes(s.shiftCode)).length;
-  if (elM) elM.textContent = myScheds.filter(s => s.shiftCode === 'M').length;
-  if (elA) elA.textContent = myScheds.filter(s => s.shiftCode === 'A').length;
-  if (elN) elN.textContent = myScheds.filter(s => s.shiftCode === 'N').length;
+  document.getElementById('myStatsTotalShifts').textContent = myScheds.filter(s => ['M', 'A', 'N'].includes(s.shiftCode)).length;
+  document.getElementById('myStatsM').textContent = myScheds.filter(s => s.shiftCode === 'M').length;
+  document.getElementById('myStatsA').textContent = myScheds.filter(s => s.shiftCode === 'A').length;
+  document.getElementById('myStatsN').textContent = myScheds.filter(s => s.shiftCode === 'N').length;
 
   const grid = document.getElementById('myCalendarGrid');
   if (!grid) return;
