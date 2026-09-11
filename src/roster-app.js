@@ -22,6 +22,8 @@ const AppState = {
   supabaseClient: null
 };
 
+let barChartInstance = null, doughnutChartInstance = null;
+
 // Default Staff List (Guaranteed Login Accounts)
 const DEFAULT_STAFF_LIST = [
   { staffId: 'ER00001', password: '123456', fullName: 'นายแอดมิน ดูแลระบบ', position: 'เจ้าหน้าที่บริหารทั่วไป', professionalLevel: 'ผู้ดูแลระบบ', phone: '081-1111111', status: 'ปกติ', role: 'admin' },
@@ -1041,7 +1043,6 @@ function populateWorkloadTable() {
   });
 }
 
-let barChartInstance = null, doughnutChartInstance = null;
 function renderCharts() {
   const sched = AppState.schedules;
   const cM = sched.filter(s => s.shiftCode === 'M').length;
