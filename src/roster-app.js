@@ -626,7 +626,7 @@ async function handleLoginSubmit(e) {
     if (user.role === 'admin' || user.role === 'head_nurse') {
       navigateMenu('dashboard');
     } else {
-      navigateMenu('myschedule');
+      navigateMenu('roster');
     }
   } else {
     Swal.fire({
@@ -671,7 +671,7 @@ function loginAsGuest() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('hidden');
   applyRolePermissions();
-  navigateMenu('myschedule');
+  navigateMenu('roster');
 }
 
 function getRoleLabel(role) {
@@ -817,6 +817,10 @@ function navigateMenu(menuKey) {
     setTimeout(renderCharts, 100);
   } else if (menuKey === 'reports') {
     renderReports();
+  } else if (menuKey === 'myschedule') {
+    setMyScheduleMode('personal');
+  } else if (menuKey === 'profile') {
+    renderProfile();
   }
 }
 
@@ -2188,7 +2192,8 @@ async function handleLeaveSubmit(e) {
 }
 
 function renderLeaves() {
-  const isHead = AppState.currentUser && ['admin', 'head_nurse'].includes(AppState.currentUser.role);
+  const curUser = AppState.currentUser || {};
+  const isHead = curUser.role === 'head_nurse';
   const pending = AppState.leaves.filter(l => l.status === 'Pending');
   const pContainer = document.getElementById('leavesHeadApprovalContainer');
   const pList = document.getElementById('pendingLeavesList');
@@ -2215,7 +2220,6 @@ function renderLeaves() {
   }
 
   const tbody = document.getElementById('leavesTableBody');
-  const curUser = AppState.currentUser || {};
 
   tbody.innerHTML = AppState.leaves.map(l => {
     const st = AppState.staffList.find(s => s.staffId === l.staffId) || {};
@@ -2225,9 +2229,9 @@ function renderLeaves() {
         ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800 font-bold">ปฏิเสธ</span>'
         : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 font-bold">รออนุมัติ</span>');
 
-    const canEdit = (l.staffId === curUser.staffId && l.status === 'Pending') || ['admin', 'head_nurse'].includes(curUser.role);
-    const canDelete = (l.staffId === curUser.staffId) || ['admin', 'head_nurse'].includes(curUser.role);
-    const canApprove = ['admin', 'head_nurse'].includes(curUser.role) && l.status === 'Pending';
+    const canEdit = (l.staffId === curUser.staffId && l.status === 'Pending') && !isHead && curUser.role !== 'admin';
+    const canDelete = (l.staffId === curUser.staffId && !isHead) || curUser.role === 'admin';
+    const canApprove = isHead && l.status === 'Pending';
 
     return `<tr class="hover:bg-slate-50 text-xs">
       <td class="py-2 px-2 font-mono text-slate-400">${l.id}</td>
@@ -2252,12 +2256,12 @@ function renderLeaves() {
 
 async function updateLeave(id, status) {
   const curUser = AppState.currentUser || {};
-  const isHead = ['admin', 'head_nurse'].includes(curUser.role);
+  const isHead = curUser.role === 'head_nurse';
   if (!isHead) {
     Swal.fire({
       icon: 'warning',
       title: 'ไม่มีสิทธิ์อนุมัติการลา',
-      text: 'เจ้าหน้าที่พยาบาลและผู้ช่วยสามารถยื่นและดูคำขอลาได้ แต่ไม่มีสิทธิ์อนุมัติคำขอลา (เฉพาะหัวหน้าพยาบาลและแอดมินเท่านั้น)',
+      text: 'เฉพาะหัวหน้าพยาบาลเท่านั้นที่มีสิทธิ์อนุมัติคำขอลา (แอดมินไม่สามารถอนุมัติแทนได้)',
       confirmButtonColor: '#0284c7'
     });
     return;
@@ -2505,7 +2509,7 @@ async function handleSwapSubmit(e) {
 
 function renderSwaps() {
   const u = AppState.currentUser || {};
-  const isHead = ['admin', 'head_nurse'].includes(u.role);
+  const isHead = u.role === 'head_nurse';
   const getName = id => (AppState.staffList.find(s => s.staffId === id) || {}).fullName || id;
   const actContainer = document.getElementById('swapMyActionsContainer');
 
@@ -2552,7 +2556,7 @@ function renderSwaps() {
   // Swaps history table
   const tbody = document.getElementById('swapsTableBody');
   tbody.innerHTML = AppState.swaps.map(s => {
-    const canCancel = (s.requesterStaffId === u.staffId && s.headStatus === 'Pending') || isHead;
+    const canCancel = (s.requesterStaffId === u.staffId && s.headStatus === 'Pending') && !isHead;
     const canHeadAct = isHead && s.peerStatus === 'Accepted' && s.headStatus === 'Pending';
 
     const peerBadge = s.peerStatus === 'Accepted'
@@ -2658,12 +2662,12 @@ async function respondPeerSwap(id, status) {
 
 async function approveHeadSwap(id, status) {
   const u = AppState.currentUser || {};
-  const isHead = ['admin', 'head_nurse'].includes(u.role);
+  const isHead = u.role === 'head_nurse';
   if (!isHead) {
     Swal.fire({
       icon: 'warning',
       title: 'ไม่มีสิทธิ์อนุมัติขั้นสุดท้าย',
-      text: 'เฉพาะหัวหน้าพยาบาลและผู้ดูแลระบบเท่านั้นที่สามารถอนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลักได้',
+      text: 'เฉพาะหัวหน้าพยาบาลเท่านั้นที่สามารถอนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลักได้ (แอดมินไม่สามารถอนุมัติแทนได้)',
       confirmButtonColor: '#0284c7'
     });
     return;
@@ -2855,23 +2859,76 @@ function renderMySchedule() {
 // --------------------------------------------------------------------------
 // 11. REPORTS & EXPORTS
 // --------------------------------------------------------------------------
+function formatThaiDate(year, month, day) {
+  const thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const thaiYear = parseInt(year) + 543;
+  return `${day} ${thaiMonths[parseInt(month)]} ${thaiYear}`;
+}
+
+function populateReportMonthSelect() {
+  const sel = document.getElementById('reportMonthSelect');
+  if (!sel) return;
+  sel.innerHTML = '';
+  const y = AppState.currentYear, m = AppState.currentMonth;
+  for (let yr = y - 1; yr <= y + 1; yr++) {
+    for (let mo = 1; mo <= 12; mo++) {
+      const opt = document.createElement('option');
+      opt.value = `${yr}-${mo}`;
+      opt.textContent = `${THAI_MONTHS[mo]} ${yr} (พ.ศ. ${yr + 543})`;
+      if (yr === y && mo === m) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+}
+
+function onReportMonthChange(val) {
+  const parts = val.split('-');
+  if (parts.length === 2) {
+    AppState.currentYear = parseInt(parts[0]);
+    AppState.currentMonth = parseInt(parts[1]);
+    renderReports();
+  }
+}
+
 function switchReportTab(k) {
   AppState.activeReportTab = k;
-  document.getElementById('tabRepMatrix').className = k === 'matrix' ? 'pb-2 px-3 text-sky-700 border-b-2 border-sky-600' : 'pb-2 px-3 text-slate-500 border-b-2 border-transparent';
-  document.getElementById('tabRepWorkload').className = k === 'workload' ? 'pb-2 px-3 text-sky-700 border-b-2 border-sky-600' : 'pb-2 px-3 text-slate-500 border-b-2 border-transparent';
+  const topicSel = document.getElementById('reportTopicSelect');
+  if (topicSel) topicSel.value = k;
+
+  ['matrix', 'daily', 'weekly', 'workload', 'ot', 'night'].forEach(tab => {
+    const el = document.getElementById(`tabRep${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+    if (el) {
+      el.className = k === tab ? 'pb-2 px-3 text-sky-700 border-b-2 border-sky-600 whitespace-nowrap' : 'pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap';
+    }
+  });
   renderReports();
 }
 
 function renderReports() {
+  populateReportMonthSelect();
+  const topicSel = document.getElementById('reportTopicSelect');
+  if (topicSel) topicSel.value = AppState.activeReportTab;
+
   const wrapper = document.getElementById('reportDynamicTableWrapper');
   if (!wrapper) return;
 
   const y = AppState.currentYear, m = AppState.currentMonth;
   const days = new Date(y, m, 0).getDate();
   const nurses = AppState.staffList.filter(s => s.role !== 'admin');
+  const titleEl = document.getElementById('reportDocumentTitle');
+
+  // Legend notice banner for PDF/Excel & reports
+  const legendHtml = `<div class="mb-3 text-[11px] text-slate-600 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 flex flex-wrap items-center gap-3">
+    <span><strong>หมายเหตุสัญลักษณ์เวร:</strong></span>
+    <span class="text-emerald-700 font-bold">(ช) = เช้า</span>
+    <span class="text-amber-700 font-bold">(บ) = บ่าย</span>
+    <span class="text-pink-700 font-bold">(ด) = ดึก</span>
+    <span class="text-slate-600 font-bold">OFF = วันหยุด</span>
+  </div>`;
 
   if (AppState.activeReportTab === 'matrix') {
-    let html = `<table class="w-full text-center text-[10px] border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1 px-2 text-left border-r min-w-[100px]">พยาบาล</th>`;
+    if (titleEl) titleEl.textContent = `ตารางเวรปฏิบัติงานประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<table class="w-full text-center text-[10px] border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1 px-2 text-left border-r min-w-[100px]">พยาบาล</th>`;
     for (let d = 1; d <= days; d++) html += `<th class="py-1 px-0.5 border-r min-w-[18px]">${d}</th>`;
     html += `<th class="py-1 px-1 border-r">ช</th><th class="py-1 px-1 border-r">บ</th><th class="py-1 px-1 border-r">ด</th><th class="py-1 px-1">รวม</th></tr></thead><tbody>`;
 
@@ -2886,21 +2943,94 @@ function renderReports() {
         if (sc === 'M') cM++;
         else if (sc === 'A') cA++;
         else if (sc === 'N') cN++;
-        html += `<td class="py-1 px-0.5 border-r">${sc || '-'}</td>`;
+        let displaySc = sc;
+        if (sc === 'M') displaySc = 'ช';
+        else if (sc === 'A') displaySc = 'บ';
+        else if (sc === 'N') displaySc = 'ด';
+        else if (sc === 'OFF') displaySc = 'O';
+        html += `<td class="py-1 px-0.5 border-r">${displaySc || '-'}</td>`;
       }
       html += `<td class="py-1 px-1 font-bold border-r text-emerald-700">${cM}</td><td class="py-1 px-1 font-bold border-r text-amber-700">${cA}</td><td class="py-1 px-1 font-bold border-r text-pink-700">${cN}</td><td class="py-1 px-1 font-extrabold text-sky-900">${cM + cA + cN}</td></tr>`;
     });
     html += `</tbody></table>`;
     wrapper.innerHTML = html;
-  } else {
-    let html = `<table class="w-full text-left text-xs border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1.5 px-2 border-r">รหัส</th><th class="py-1.5 px-2 border-r">ชื่อพยาบาล</th><th class="py-1.5 px-1 text-center border-r">เช้า</th><th class="py-1.5 px-1 text-center border-r">บ่าย</th><th class="py-1.5 px-1 text-center border-r">ดึก</th><th class="py-1.5 px-1 text-center border-r">รวม</th><th class="py-1.5 px-1 text-center">วันหยุด</th></tr></thead><tbody>`;
+  } else if (AppState.activeReportTab === 'daily') {
+    if (titleEl) titleEl.textContent = `รายงานตารางเวรรายวัน (Daily Roster) ประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<table class="w-full text-left text-xs border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1.5 px-3 border-r">วันที่</th><th class="py-1.5 px-3 border-r">เวรเช้า ((ช) = เช้า)</th><th class="py-1.5 px-3 border-r">เวรบ่าย ((บ) = บ่าย)</th><th class="py-1.5 px-3">เวรดึก ((ด) = ดึก)</th></tr></thead><tbody>`;
+    for (let d = 1; d <= days; d++) {
+      const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayScheds = AppState.schedules.filter(s => s.date === dStr);
+      const mList = dayScheds.filter(s => s.shiftCode === 'M').map(s => (AppState.staffList.find(x => x.staffId === s.staffId) || {}).fullName || s.staffId);
+      const aList = dayScheds.filter(s => s.shiftCode === 'A').map(s => (AppState.staffList.find(x => x.staffId === s.staffId) || {}).fullName || s.staffId);
+      const nList = dayScheds.filter(s => s.shiftCode === 'N').map(s => (AppState.staffList.find(x => x.staffId === s.staffId) || {}).fullName || s.staffId);
+      html += `<tr class="border-b"><td class="py-1.5 px-3 font-bold border-r whitespace-nowrap">${formatThaiDate(y, m, d)}</td><td class="py-1.5 px-3 border-r text-emerald-700">${mList.join(', ') || '-'}</td><td class="py-1.5 px-3 border-r text-amber-700">${aList.join(', ') || '-'}</td><td class="py-1.5 px-3 text-pink-700">${nList.join(', ') || '-'}</td></tr>`;
+    }
+    html += `</tbody></table>`;
+    wrapper.innerHTML = html;
+  } else if (AppState.activeReportTab === 'weekly') {
+    if (titleEl) titleEl.textContent = `รายงานตารางเวรรายสัปดาห์ (Weekly Roster) ประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<div class="space-y-4">`;
+    const weeks = [
+      { name: 'สัปดาห์ที่ 1 (วันที่ 1 - 7)', start: 1, end: 7 },
+      { name: 'สัปดาห์ที่ 2 (วันที่ 8 - 14)', start: 8, end: 14 },
+      { name: 'สัปดาห์ที่ 3 (วันที่ 15 - 21)', start: 15, end: 21 },
+      { name: 'สัปดาห์ที่ 4 (วันที่ 22 - ปลายเดือน)', start: 22, end: days }
+    ];
+    weeks.forEach(w => {
+      html += `<div class="border border-slate-200 rounded-xl p-3"><h4 class="font-bold text-xs text-sky-800 mb-2">${w.name}</h4><table class="w-full text-center text-[10px] border border-slate-200 border-collapse"><thead><tr class="bg-slate-50 border-b font-bold"><th class="py-1 px-2 text-left border-r">พยาบาล</th>`;
+      for (let d = w.start; d <= w.end; d++) html += `<th class="py-1 px-0.5 border-r">${d}</th>`;
+      html += `</tr></thead><tbody>`;
+      nurses.forEach(n => {
+        const sList = AppState.schedules.filter(s => s.staffId === n.staffId);
+        html += `<tr class="border-b"><td class="py-1 px-2 text-left font-semibold border-r">${n.fullName}</td>`;
+        for (let d = w.start; d <= w.end; d++) {
+          const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const itm = sList.find(s => s.date === dStr);
+          const sc = itm ? itm.shiftCode : '';
+          let displaySc = sc;
+          if (sc === 'M') displaySc = 'ช';
+          else if (sc === 'A') displaySc = 'บ';
+          else if (sc === 'N') displaySc = 'ด';
+          else if (sc === 'OFF') displaySc = 'O';
+          html += `<td class="py-1 px-0.5 border-r">${displaySc || '-'}</td>`;
+        }
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+    });
+    html += `</div>`;
+    wrapper.innerHTML = html;
+  } else if (AppState.activeReportTab === 'workload') {
+    if (titleEl) titleEl.textContent = `รายงานสถิติการปฏิบัติงาน (Workload Stats) ประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<table class="w-full text-left text-xs border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1.5 px-2 border-r">รหัส</th><th class="py-1.5 px-2 border-r">ชื่อพยาบาล</th><th class="py-1.5 px-1 text-center border-r">เช้า ((ช) = เช้า)</th><th class="py-1.5 px-1 text-center border-r">บ่าย ((บ) = บ่าย)</th><th class="py-1.5 px-1 text-center border-r">ดึก ((ด) = ดึก)</th><th class="py-1.5 px-1 text-center border-r">รวมเวร</th><th class="py-1.5 px-1 text-center">วันหยุด (OFF)</th></tr></thead><tbody>`;
     nurses.forEach(n => {
       const sList = AppState.schedules.filter(s => s.staffId === n.staffId);
       const cM = sList.filter(s => s.shiftCode === 'M').length;
       const cA = sList.filter(s => s.shiftCode === 'A').length;
       const cN = sList.filter(s => s.shiftCode === 'N').length;
       const cOff = sList.filter(s => s.shiftCode === 'OFF').length;
-      html += `<tr class="border-b"><td class="py-1.5 px-2 font-mono border-r">${n.staffId}</td><td class="py-1.5 px-2 font-bold border-r">${n.fullName}</td><td class="py-1.5 px-1 text-center border-r font-bold text-emerald-600">${cM}</td><td class="py-1.5 px-1 text-center border-r font-bold text-amber-600">${cA}</td><td class="py-1.5 px-1 text-center border-r font-bold text-pink-600">${cN}</td><td class="py-1.5 px-1 text-center border-r font-extrabold text-sky-800">${cM + cA + cN}</td><td class="py-1.5 px-1 text-center text-slate-400">${cOff}</td></tr>`;
+      html += `<tr class="border-b"><td class="py-1.5 px-2 font-mono border-r">${n.staffId}</td><td class="py-1.5 px-2 font-bold border-r">${n.fullName}</td><td class="py-1.5 px-1 text-center border-r font-bold text-emerald-600">${cM}</td><td class="py-1.5 px-1 text-center border-r font-bold text-amber-600">${cA}</td><td class="py-1.5 px-1 text-center border-r font-bold text-pink-600">${cN}</td><td class="py-1.5 px-1 text-center border-r font-extrabold text-sky-800">${cM + cA + cN}</td><td class="py-1.5 px-1 text-center text-slate-500">${cOff}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    wrapper.innerHTML = html;
+  } else if (AppState.activeReportTab === 'ot') {
+    if (titleEl) titleEl.textContent = `รายงานสรุป OT (ค่าตอบแทนพิเศษ/เวรเสริม) ประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<table class="w-full text-left text-xs border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1.5 px-2 border-r">รหัส</th><th class="py-1.5 px-2 border-r">ชื่อพยาบาล</th><th class="py-1.5 px-2 border-r">ตำแหน่ง</th><th class="py-1.5 px-1 text-center border-r">เวร OT / On Call</th><th class="py-1.5 px-1 text-center">รวมเวรเสริม (ชม./เวร)</th></tr></thead><tbody>`;
+    nurses.forEach(n => {
+      const sList = AppState.schedules.filter(s => s.staffId === n.staffId);
+      const otList = sList.filter(s => s.shiftCode === 'ONCALL' || s.shiftCode === 'SP' || (s.shiftCode && s.shiftCode.split('+').length > 1));
+      html += `<tr class="border-b"><td class="py-1.5 px-2 font-mono border-r">${n.staffId}</td><td class="py-1.5 px-2 font-bold border-r">${n.fullName}</td><td class="py-1.5 px-2 border-r text-slate-600">${n.position || '-'}</td><td class="py-1.5 px-1 text-center border-r font-bold text-purple-700">${otList.length} เวร</td><td class="py-1.5 px-1 text-center font-extrabold text-sky-900">${otList.length * 8} ชม.</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    wrapper.innerHTML = html;
+  } else if (AppState.activeReportTab === 'night') {
+    if (titleEl) titleEl.textContent = `รายงานสรุปเวรดึก (Night Shift Summary: (ด) = ดึก) ประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})`;
+    let html = legendHtml + `<table class="w-full text-left text-xs border border-slate-300 border-collapse"><thead><tr class="bg-slate-100 border-b font-bold"><th class="py-1.5 px-2 border-r">รหัส</th><th class="py-1.5 px-2 border-r">ชื่อพยาบาล</th><th class="py-1.5 px-1 text-center border-r">จำนวนเวรดึก ((ด))</th><th class="py-1.5 px-2">วันที่ปฏิบัติเวรดึก</th></tr></thead><tbody>`;
+    nurses.forEach(n => {
+      const sList = AppState.schedules.filter(s => s.staffId === n.staffId);
+      const nScheds = sList.filter(s => s.shiftCode === 'N' || (s.shiftCode && s.shiftCode.includes('N')));
+      const datesStr = nScheds.map(s => s.date.split('-')[2]).join(', ');
+      html += `<tr class="border-b"><td class="py-1.5 px-2 font-mono border-r">${n.staffId}</td><td class="py-1.5 px-2 font-bold border-r">${n.fullName}</td><td class="py-1.5 px-1 text-center border-r font-bold text-pink-700">${nScheds.length} เวร</td><td class="py-1.5 px-2 text-slate-600">${datesStr || '-'}</td></tr>`;
     });
     html += `</tbody></table>`;
     wrapper.innerHTML = html;
@@ -2916,8 +3046,10 @@ function exportReportToPDF() {
   Swal.showLoading();
   window.html2pdf()
     .set({
-      margin: [8, 8, 8, 8],
-      filename: `Roster_${AppState.currentYear}_${AppState.currentMonth}.pdf`,
+      margin: [10, 10, 10, 10],
+      filename: `Roster_Report_${AppState.currentYear}_${AppState.currentMonth}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     })
     .from(el)
@@ -2926,20 +3058,50 @@ function exportReportToPDF() {
 }
 
 function exportRosterToExcel() {
-  if (!window.XLSX) return;
   const y = AppState.currentYear, m = AppState.currentMonth;
   const days = new Date(y, m, 0).getDate();
   const nurses = AppState.staffList.filter(s => s.role !== 'admin');
 
-  const headers = ['รหัส', 'ชื่อ-สกุล', 'ตำแหน่ง'];
-  for (let d = 1; d <= days; d++) headers.push(`ว.${d}`);
-  headers.push('เช้า (ช)', 'บ่าย (บ)', 'ดึก (ด)', 'รวมเวร', 'วันหยุด');
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Niramit', sans-serif; font-size: 11pt; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 0.5pt solid #cbd5e1; padding: 6px; text-align: center; font-family: 'Niramit', sans-serif; }
+    th { background-color: #f1f5f9; font-weight: bold; }
+    .shift-M { background-color: #d1fae5; color: #065f46; font-weight: bold; }
+    .shift-A { background-color: #fef3c7; color: #92400e; font-weight: bold; }
+    .shift-N { background-color: #fce7f3; color: #9d174d; font-weight: bold; }
+    .shift-OFF { background-color: #f1f5f9; color: #64748b; }
+    .shift-ONCALL { background-color: #ede9fe; color: #5b21b6; font-weight: bold; }
+    .shift-SP { background-color: #dbeafe; color: #1e40af; font-weight: bold; }
+  </style>
+  </head>
+  <body>
+  <h2 style="text-align: center; font-family: 'Niramit', sans-serif;">ตารางเวรปฏิบัติงานประจำเดือน ${THAI_MONTHS[m]} ${y} (พ.ศ. ${y + 543})</h2>
+  <div style="margin-bottom: 10px; font-size: 10pt; color: #475569;">
+    <strong>หมายเหตุ:</strong> (ช) = เช้า | (บ) = บ่าย | (ด) = ดึก | OFF = วันหยุด
+  </div>
+  <table>
+    <thead>
+      <tr style="background:#f8fafc;">
+        <th style="text-align: left;">รหัส</th>
+        <th style="text-align: left;">ชื่อ-สกุล</th>
+        <th style="text-align: left;">ตำแหน่ง</th>`;
+  for (let d = 1; d <= days; d++) {
+    html += `<th>${d}</th>`;
+  }
+  html += `<th>เช้า ((ช))</th><th>บ่าย ((บ))</th><th>ดึก ((ด))</th><th>รวมเวร</th><th>วันหยุด (OFF)</th></tr></thead><tbody>`;
 
-  const rows = [headers];
   nurses.forEach(n => {
-    const row = [n.staffId, n.fullName, n.position || 'พยาบาลวิชาชีพ'];
     const sList = AppState.schedules.filter(s => s.staffId === n.staffId);
     let cM = 0, cA = 0, cN = 0, cOff = 0;
+    html += `<tr>`;
+    html += `<td style="text-align: left; mso-number-format:'\@';">${n.staffId}</td>`;
+    html += `<td style="text-align: left;">${n.fullName}</td>`;
+    html += `<td style="text-align: left;">${n.position || 'พยาบาลวิชาชีพ'}</td>`;
+
     for (let d = 1; d <= days; d++) {
       const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const itm = sList.find(s => s.date === dStr);
@@ -2948,16 +3110,32 @@ function exportRosterToExcel() {
       else if (sc === 'A') cA++;
       else if (sc === 'N') cN++;
       else if (sc === 'OFF') cOff++;
-      row.push(sc || '-');
-    }
-    row.push(cM, cA, cN, cM + cA + cN, cOff);
-    rows.push(row);
-  });
 
-  const ws = window.XLSX.utils.aoa_to_sheet(rows);
-  const wb = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(wb, ws, `Roster_${m}_${y}`);
-  window.XLSX.writeFile(wb, `ER_Roster_Sangkhlaburi_${y}_${m}.xlsx`);
+      let displaySc = sc;
+      let cssClass = '';
+      if (sc === 'M') { displaySc = 'ช'; cssClass = 'shift-M'; }
+      else if (sc === 'A') { displaySc = 'บ'; cssClass = 'shift-A'; }
+      else if (sc === 'N') { displaySc = 'ด'; cssClass = 'shift-N'; }
+      else if (sc === 'OFF') { displaySc = 'OFF'; cssClass = 'shift-OFF'; }
+      else if (sc === 'ONCALL') { displaySc = 'OC'; cssClass = 'shift-ONCALL'; }
+      else if (sc === 'SP') { displaySc = 'พศ'; cssClass = 'shift-SP'; }
+
+      html += `<td class="${cssClass}">${displaySc || '-'}</td>`;
+    }
+    html += `<td style="font-weight:bold; color:#065f46;">${cM}</td><td style="font-weight:bold; color:#92400e;">${cA}</td><td style="font-weight:bold; color:#9d174d;">${cN}</td><td style="font-weight:bold; color:#0369a1;">${cM + cA + cN}</td><td style="color:#64748b;">${cOff}</td></tr>`;
+  });
+  html += `</tbody></table></body></html>`;
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ER_Roster_Sangkhlaburi_${y}_${m}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  Swal.fire({ icon: 'success', title: 'ส่งออกไฟล์ Excel (Niramit & สีเวร) เรียบร้อย', timer: 1500, showConfirmButton: false });
 }
 
 // --------------------------------------------------------------------------
@@ -3244,10 +3422,15 @@ async function clearAllNotifications() {
 // 13. SETTINGS & PROFILE (SUPABASE)
 // --------------------------------------------------------------------------
 function renderProfile() {
-  const u = AppState.currentUser;
+  let u = AppState.currentUser;
   if (!u) return;
-  document.getElementById('profileFullName').textContent = u.fullName;
-  document.getElementById('profileStaffId').textContent = u.staffId;
+  const freshStaff = AppState.staffList.find(s => s.staffId === u.staffId);
+  if (freshStaff) {
+    u = { ...u, ...freshStaff };
+    AppState.currentUser = u;
+  }
+  document.getElementById('profileFullName').textContent = u.fullName || '-';
+  document.getElementById('profileStaffId').textContent = u.staffId || '-';
   document.getElementById('profilePosition').textContent = u.position || '-';
   document.getElementById('profileLevel').textContent = u.professionalLevel || '-';
   document.getElementById('profileRoleText').textContent = getRoleLabel(u.role);

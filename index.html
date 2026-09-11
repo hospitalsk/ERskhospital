@@ -8,10 +8,10 @@
   <meta property="og:title" content="ระบบจัดตารางเวรพยาบาล ER - โรงพยาบาลสังขละบุรี" />
   <meta property="og:description" content="ระบบจัดตารางเวรพยาบาล ER โรงพยาบาลสังขละบุรี เชื่อมต่อ Supabase" />
 
-  <!-- Google Fonts: Sarabun & Prompt -->
+  <!-- Google Fonts: Sarabun, Prompt, Kanit & Niramit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Niramit:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,6 +42,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
+    body { font-size: 14.5px; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -57,10 +58,12 @@
     .badge-shift-ONCALL { background-color: #8b5cf6; color: #ffffff; }
     .badge-shift-OFF { background-color: #94a3b8; color: #ffffff; }
     .badge-shift-SP { background-color: #3b82f6; color: #ffffff; }
+    #printArea, #printArea * { font-family: 'Niramit', sans-serif !important; }
     @media print {
       body * { visibility: hidden; }
       #printArea, #printArea * { visibility: visible; }
-      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; page-break-inside: avoid; }
+      @page { size: A4 landscape; margin: 10mm; }
     }
   </style>
 </head>
@@ -638,19 +641,38 @@
 
         <!-- SECTION: REPORTS -->
         <section id="section-reports" class="hidden space-y-4">
-          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <div>
-              <h1 class="text-lg font-bold text-slate-800">รายงานตารางเวรและสถิติ (Reports & Analytics)</h1>
-              <p class="text-xs text-slate-500">ส่งออกเป็น PDF (ขนาด A4 แนวนอน พร้อมลายเซ็น) หรือ Excel</p>
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+                <span class="text-[11px] font-bold text-slate-700">เดือนที่จะปริ้น:</span>
+                <select id="reportMonthSelect" onchange="onReportMonthChange(this.value)" class="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-medium text-slate-800">
+                  <!-- populated in JS -->
+                </select>
+              </div>
+              <div class="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+                <span class="text-[11px] font-bold text-slate-700">เลือกหัวข้อ:</span>
+                <select id="reportTopicSelect" onchange="switchReportTab(this.value)" class="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 font-medium text-slate-800">
+                  <option value="matrix">ตารางเวรประจำเดือน</option>
+                  <option value="daily">ตารางเวรรายวัน</option>
+                  <option value="weekly">ตารางเวรรายสัปดาห์</option>
+                  <option value="workload">สถิติการปฏิบัติงาน</option>
+                  <option value="ot">สรุป OT</option>
+                  <option value="night">สรุปเวรดึก</option>
+                </select>
+              </div>
             </div>
             <div class="flex items-center space-x-2">
               <button onclick="exportReportToPDF()" class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs"><i class="fa-solid fa-file-pdf mr-1"></i>ส่งออก PDF (A4)</button>
               <button onclick="exportRosterToExcel()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs"><i class="fa-solid fa-file-excel mr-1"></i>ส่งออก Excel</button>
             </div>
           </div>
-          <div class="flex items-center space-x-2 border-b border-slate-200 text-xs font-semibold">
-            <button onclick="switchReportTab('matrix')" id="tabRepMatrix" class="pb-2 px-3 text-sky-700 border-b-2 border-sky-600">ตารางเวรประจำเดือน</button>
-            <button onclick="switchReportTab('workload')" id="tabRepWorkload" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent">สถิติการปฏิบัติงาน & OT</button>
+          <div class="flex items-center space-x-2 border-b border-slate-200 text-xs font-semibold overflow-x-auto pb-1">
+            <button onclick="switchReportTab('matrix')" id="tabRepMatrix" class="pb-2 px-3 text-sky-700 border-b-2 border-sky-600 whitespace-nowrap">ตารางเวรประจำเดือน</button>
+            <button onclick="switchReportTab('daily')" id="tabRepDaily" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap">ตารางเวรรายวัน</button>
+            <button onclick="switchReportTab('weekly')" id="tabRepWeekly" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap">ตารางเวรรายสัปดาห์</button>
+            <button onclick="switchReportTab('workload')" id="tabRepWorkload" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap">สถิติการปฏิบัติงาน</button>
+            <button onclick="switchReportTab('ot')" id="tabRepOT" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap">สรุป OT</button>
+            <button onclick="switchReportTab('night')" id="tabRepNight" class="pb-2 px-3 text-slate-500 border-b-2 border-transparent whitespace-nowrap">สรุปเวรดึก</button>
           </div>
           <div id="printArea" class="bg-white p-6 rounded-2xl border border-slate-200 space-y-5">
             <div class="text-center border-b-2 border-sky-800 pb-3">
