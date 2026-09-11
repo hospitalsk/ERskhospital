@@ -878,6 +878,16 @@ function confirmLogout() {
   }).then(res => {
     if (res.isConfirmed) {
       AppState.currentUser = null;
+      const remember = document.getElementById('rememberMeCheckbox')?.checked || false;
+      if (!remember) {
+        localStorage.removeItem('er_staff_id');
+        localStorage.removeItem('er_staff_pass');
+        const idEl = document.getElementById('loginStaffId');
+        if (idEl) idEl.value = '';
+      }
+      const passEl = document.getElementById('loginPassword');
+      if (passEl) passEl.value = '';
+
       const btnHeaderSupabase = document.getElementById('btnHeaderSupabase');
       if (btnHeaderSupabase) {
         btnHeaderSupabase.classList.add('hidden');
