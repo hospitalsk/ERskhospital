@@ -116,7 +116,7 @@
         </button>
 
         <button type="button" onclick="loginAsGuest()" class="w-full py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition flex items-center justify-center space-x-2">
-          <i class="fa-solid fa-calendar-days text-sky-600"></i><span>เข้าสู่ระบบในโหมดทั่วไป (ดูตารางเวร)</span>
+          <i class="fa-solid fa-users text-sky-600"></i><span>เข้าสู่ระบบทั่วไป (ดูตารางเวรและบุคลากร)</span>
         </button>
       </form>
 
@@ -207,7 +207,7 @@
           <div id="navGroupOverview" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">ภาพรวม</div>
           <button onclick="navigateMenu('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-chart-pie w-4 text-sky-600"></i><span>Dashboard ภาพรวม</span></button>
 
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">งานประจำวัน</div>
+          <div id="navGroupDaily" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">งานประจำวัน</div>
           <button onclick="navigateMenu('roster')" id="nav-roster" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-calendar-days w-4 text-indigo-600"></i><span>ตารางเวรหลัก</span></button>
           <button onclick="navigateMenu('myschedule')" id="nav-myschedule" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-calendar-check w-4 text-emerald-600"></i><span>เวรของฉัน</span></button>
           <button onclick="navigateMenu('leaves')" id="nav-leaves" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
@@ -225,11 +225,11 @@
             <span id="sidebarSwapsBadge" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white shadow-xs">0</span>
           </button>
 
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ข้อมูลหลัก</div>
+          <div id="navGroupMaster" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ข้อมูลหลัก</div>
           <button onclick="navigateMenu('staff')" id="nav-staff" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-user-nurse w-4 text-teal-600"></i><span>บุคลากร</span></button>
           <button onclick="navigateMenu('shifts')" id="nav-shifts" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-clock w-4 text-cyan-600"></i><span>ประเภทเวร & วันหยุด</span></button>
 
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">รายงานและสถิติ</div>
+          <div id="navGroupReports" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">รายงานและสถิติ</div>
           <button onclick="navigateMenu('reports')" id="nav-reports" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-file-waveform w-4 text-purple-600"></i><span>รายงาน PDF/Excel</span></button>
           <button onclick="navigateMenu('notifications')" id="nav-notifications" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition">
             <div class="flex items-center space-x-3">
@@ -239,7 +239,7 @@
             <span id="sidebarNotifBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white">0</span>
           </button>
 
-          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ระบบ</div>
+          <div id="navGroupSystem" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1">ระบบ</div>
           <button onclick="navigateMenu('settings')" id="nav-settings" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-gears w-4 text-slate-600"></i><span>ตั้งค่าระบบ</span></button>
           <button onclick="navigateMenu('profile')" id="nav-profile" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition"><i class="fa-solid fa-address-card w-4 text-blue-600"></i><span>โปรไฟล์ส่วนตัว</span></button>
         </nav>

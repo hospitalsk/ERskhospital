@@ -705,12 +705,27 @@ function applyRolePermissions() {
 
   const navDashboard = document.getElementById('nav-dashboard');
   const navGroupOverview = document.getElementById('navGroupOverview');
+  const navGroupDaily = document.getElementById('navGroupDaily');
+  const navGroupMaster = document.getElementById('navGroupMaster');
+  const navGroupReports = document.getElementById('navGroupReports');
+  const navGroupSystem = document.getElementById('navGroupSystem');
+
   const navRoster = document.getElementById('nav-roster');
+  const navMySchedule = document.getElementById('nav-myschedule');
+  const navLeaves = document.getElementById('nav-leaves');
+  const navSwaps = document.getElementById('nav-swaps');
+  const navStaff = document.getElementById('nav-staff');
+  const navShifts = document.getElementById('nav-shifts');
+  const navReports = document.getElementById('nav-reports');
+  const navNotifications = document.getElementById('nav-notifications');
   const navSettings = document.getElementById('nav-settings');
+  const navProfile = document.getElementById('nav-profile');
+
   const btnAuto = document.getElementById('btnOpenAutoScheduleModal');
   const btnClear = document.getElementById('btnClearRoster');
   const btnAddStaff = document.getElementById('btnAddStaffModal');
   const btnHeaderSupabase = document.getElementById('btnHeaderSupabase');
+  const notifBellContainer = document.getElementById('notifBellContainer');
   const btnAddShiftType = document.getElementById('btnAddShiftTypeModal');
   const btnAddHoliday = document.getElementById('btnAddHolidayModal');
   const badgeShiftRo = document.getElementById('shiftTypesReadOnlyBadge');
@@ -718,6 +733,7 @@ function applyRolePermissions() {
 
   const isAdmin = u.role === 'admin';
   const isHead = u.role === 'head_nurse';
+  const isGuest = u.role === 'guest';
   const canAdminOrHead = isAdmin || isHead;
 
   // Supabase Connect Button in header: ONLY Admin
@@ -731,12 +747,60 @@ function applyRolePermissions() {
     }
   }
 
-  // Dashboard Nav & Overview group: ONLY Admin and Head Nurse
-  if (navDashboard) {
-    navDashboard.classList.toggle('hidden', !canAdminOrHead);
+  // Notification Bell: Hide for guest
+  if (notifBellContainer) {
+    notifBellContainer.classList.toggle('hidden', isGuest);
   }
-  if (navGroupOverview) {
-    navGroupOverview.classList.toggle('hidden', !canAdminOrHead);
+
+  // General user (guest): Allowed ONLY 'roster' (ตารางเวรหลัก) and 'staff' (บุคลากร)
+  if (isGuest) {
+    // Hide overview group & dashboard
+    if (navGroupOverview) navGroupOverview.classList.add('hidden');
+    if (navDashboard) navDashboard.classList.add('hidden');
+
+    // Daily group: keep group header visible, but hide non-roster items
+    if (navGroupDaily) navGroupDaily.classList.remove('hidden');
+    if (navRoster) navRoster.classList.remove('hidden');
+    if (navMySchedule) navMySchedule.classList.add('hidden');
+    if (navLeaves) navLeaves.classList.add('hidden');
+    if (navSwaps) navSwaps.classList.add('hidden');
+
+    // Master data group: keep staff, hide shifts & holidays
+    if (navGroupMaster) navGroupMaster.classList.remove('hidden');
+    if (navStaff) navStaff.classList.remove('hidden');
+    if (navShifts) navShifts.classList.add('hidden');
+
+    // Reports group: hide all
+    if (navGroupReports) navGroupReports.classList.add('hidden');
+    if (navReports) navReports.classList.add('hidden');
+    if (navNotifications) navNotifications.classList.add('hidden');
+
+    // System group: hide all
+    if (navGroupSystem) navGroupSystem.classList.add('hidden');
+    if (navSettings) navSettings.classList.add('hidden');
+    if (navProfile) navProfile.classList.add('hidden');
+  } else {
+    // Non-guest accounts
+    if (navGroupOverview) navGroupOverview.classList.toggle('hidden', !canAdminOrHead);
+    if (navDashboard) navDashboard.classList.toggle('hidden', !canAdminOrHead);
+
+    if (navGroupDaily) navGroupDaily.classList.remove('hidden');
+    if (navRoster) navRoster.classList.remove('hidden');
+    if (navMySchedule) navMySchedule.classList.remove('hidden');
+    if (navLeaves) navLeaves.classList.remove('hidden');
+    if (navSwaps) navSwaps.classList.remove('hidden');
+
+    if (navGroupMaster) navGroupMaster.classList.remove('hidden');
+    if (navStaff) navStaff.classList.remove('hidden');
+    if (navShifts) navShifts.classList.remove('hidden');
+
+    if (navGroupReports) navGroupReports.classList.remove('hidden');
+    if (navReports) navReports.classList.remove('hidden');
+    if (navNotifications) navNotifications.classList.remove('hidden');
+
+    if (navGroupSystem) navGroupSystem.classList.remove('hidden');
+    if (navSettings) navSettings.classList.toggle('hidden', !isAdmin);
+    if (navProfile) navProfile.classList.remove('hidden');
   }
 
   // Staff Management (Add Button): ONLY Admin and Head Nurse
@@ -758,11 +822,6 @@ function applyRolePermissions() {
     badgeHolRo.classList.toggle('hidden', canAdminOrHead);
   }
 
-  // Settings: ONLY Admin
-  if (navSettings) {
-    navSettings.classList.toggle('hidden', !isAdmin);
-  }
-
   // Auto Schedule & Clear: Admin and Head Nurse
   if (btnAuto) btnAuto.classList.toggle('hidden', !canAdminOrHead);
   if (btnClear) btnClear.classList.toggle('hidden', !canAdminOrHead);
@@ -778,16 +837,25 @@ function applyRolePermissions() {
 }
 
 function navigateMenu(menuKey) {
+  const role = AppState.currentUser?.role;
+
+  // General user restriction: ONLY 'roster' and 'staff' are accessible
+  if (role === 'guest') {
+    if (menuKey !== 'roster' && menuKey !== 'staff') {
+      navigateMenu('roster');
+      return;
+    }
+  }
+
   // Guard dashboard: only admin and head_nurse can view dashboard
   if (menuKey === 'dashboard') {
-    const role = AppState.currentUser?.role;
     if (role !== 'admin' && role !== 'head_nurse') {
       navigateMenu('myschedule');
       return;
     }
   }
   if (menuKey === 'settings') {
-    if (AppState.currentUser?.role !== 'admin') {
+    if (role !== 'admin') {
       navigateMenu('profile');
       return;
     }
@@ -1178,6 +1246,16 @@ function getShiftBadgeSpan(code) {
 
 // Open cell shift modal
 function openCellEditModal(staffId, dStr, curShift) {
+  const canEdit = AppState.currentUser && ['admin', 'head_nurse'].includes(AppState.currentUser.role);
+  if (!canEdit) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'ไม่มีสิทธิ์แก้ไข',
+      text: 'เฉพาะสิทธิ์ Admin และหัวหน้าพยาบาลเท่านั้นที่สามารถจัดหรือแก้ไขเวรในตารางหลักได้',
+      confirmButtonColor: '#0284c7'
+    });
+    return;
+  }
   AppState.cellEditTarget = { staffId, date: dStr };
   const nurse = AppState.staffList.find(s => s.staffId === staffId);
   document.getElementById('cellEditNurseName').textContent = nurse ? nurse.fullName : staffId;
