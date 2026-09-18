@@ -19,7 +19,8 @@ const AppState = {
   myScheduleMode: 'personal',
   activeReportTab: 'matrix',
   cellEditTarget: null,
-  supabaseClient: null
+  supabaseClient: null,
+  cachedDbConfig: { url: '', key: '' }
 };
 
 let barChartInstance = null, doughnutChartInstance = null;
@@ -244,6 +245,7 @@ async function loadAndSyncSupabaseConfig() {
       const sUrl = String(serverConfig.url).trim();
       const sKey = String(serverConfig.key).trim();
       if (sUrl && sKey) {
+        AppState.cachedDbConfig = { url: sUrl, key: sKey };
         if (!AppState.supabaseClient) {
           initSupabase(sUrl, sKey);
         }
@@ -3967,15 +3969,16 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
   const resBox = document.getElementById('sbConnectResult');
   const sqlBox = document.getElementById('sbSqlScriptContent');
 
-  if (urlInput) urlInput.value = '';
-  if (keyInput) keyInput.value = '';
+  // Populate instantly from cached memory if available
+  if (urlInput) urlInput.value = AppState.cachedDbConfig?.url || '';
+  if (keyInput) keyInput.value = AppState.cachedDbConfig?.key || '';
   if (sqlBox) sqlBox.value = getSupabaseSqlSchema();
   if (resBox) resBox.classList.add('hidden');
 
   switchSbModalTab('connect');
   openModal('modalSupabaseConfig');
 
-  // Fetch config directly from Supabase database / server config API exclusively
+  // Fetch config directly from Supabase database / server config API to ensure latest
   try {
     let fetchedUrl = '';
     let fetchedKey = '';
@@ -4001,6 +4004,7 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
     }
 
     if (fetchedUrl && fetchedKey) {
+      AppState.cachedDbConfig = { url: fetchedUrl, key: fetchedKey };
       if (urlInput) urlInput.value = fetchedUrl;
       if (keyInput) keyInput.value = fetchedKey;
     }
@@ -4073,6 +4077,7 @@ async function saveAndTestSupabaseConfig() {
     
     AppState.supabaseClient = testClient;
     updateSbStatusBadge(true);
+    AppState.cachedDbConfig = { url, key };
 
     // Save to central server database config exclusively
     try {
