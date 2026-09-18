@@ -158,11 +158,28 @@ ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
 function showSupabaseError(action, err) {
   console.error(`Database ${action} Error:`, err);
   const msg = err?.message || err?.error_description || JSON.stringify(err);
+  const isRls = err?.code === '42501' || (msg && (msg.includes('row-level security policy') || msg.includes('policy')));
+
+  let html = `<div class="text-left text-xs bg-slate-100 p-2 rounded text-rose-800 font-mono break-all">${msg}</div>`;
+  if (isRls) {
+    html += `<div class="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 text-left">
+      <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> สาเหตุ: ปิดการใช้งาน RLS ไม่สมบูรณ์</p>
+      <p class="mb-1">ตารางใน Supabase ถูกจำกัดสิทธิ์ (Row Level Security) ทำให้ระบบไม่สามารถบันทึกข้อมูลได้</p>
+      <p class="font-semibold text-sky-700">วิธีแก้ไข:</p>
+      <ol class="list-decimal pl-4 space-y-0.5 mt-1">
+        <li>คลิกปุ่ม <strong>"ตั้งค่าฐานข้อมูล"</strong> ด้านบน</li>
+        <li>เลือกแท็บ <strong>"ดูโค้ด SQL สร้างตาราง"</strong></li>
+        <li>คัดลอก SQL ทั้งหมดไปรันใน <strong>Supabase SQL Editor</strong> อีกครั้ง (คำสั่งจะช่วยปิด RLS ให้อัตโนมัติ)</li>
+      </ol>
+    </div>`;
+  } else {
+    html += `<p class="text-[11px] text-slate-500 mt-2">โปรดตรวจสอบว่าได้รันคำสั่ง SQL สร้างตารางและสิทธิ์ในฐานข้อมูลแล้วหรือยัง</p>`;
+  }
+
   Swal.fire({
     icon: 'error',
     title: `ข้อผิดพลาดในระบบ (${action})`,
-    html: `<div class="text-left text-xs bg-slate-100 p-2 rounded text-rose-800 font-mono break-all">${msg}</div>
-           <p class="text-[11px] text-slate-500 mt-2">โปรดตรวจสอบว่าได้รันคำสั่ง SQL สร้างตารางและสิทธิ์ในฐานข้อมูลแล้วหรือยัง</p>`,
+    html,
     confirmButtonColor: '#0284c7'
   });
 }
