@@ -19,8 +19,7 @@ const AppState = {
   myScheduleMode: 'personal',
   activeReportTab: 'matrix',
   cellEditTarget: null,
-  supabaseClient: null,
-  cachedDbConfig: { url: '', key: '' }
+  supabaseClient: null
 };
 
 let barChartInstance = null, doughnutChartInstance = null;
@@ -158,79 +157,72 @@ ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
 function showSupabaseError(action, err) {
   console.error(`Database ${action} Error:`, err);
   const msg = err?.message || err?.error_description || JSON.stringify(err);
-  const isRls = err?.code === '42501' || (msg && (msg.includes('row-level security policy') || msg.includes('policy')));
+  const isRLSError = err?.code === '42501' || (msg && msg.includes('row-level security policy'));
+  const isFKError = err?.code === '23503' || (msg && msg.includes('foreign key constraint'));
 
-  let html = `<div class="text-left text-xs bg-slate-100 p-2 rounded text-rose-800 font-mono break-all">${msg}</div>`;
-  if (isRls) {
-    html += `<div class="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 text-left">
-      <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> สาเหตุ: ปิดการใช้งาน RLS ไม่สมบูรณ์</p>
-      <p class="mb-1">ตารางใน Supabase ถูกจำกัดสิทธิ์ (Row Level Security) ทำให้ระบบไม่สามารถบันทึกข้อมูลได้</p>
-      <p class="font-semibold text-sky-700">วิธีแก้ไข:</p>
-      <ol class="list-decimal pl-4 space-y-0.5 mt-1">
-        <li>คลิกปุ่ม <strong>"ตั้งค่าฐานข้อมูล"</strong> ด้านบน</li>
-        <li>เลือกแท็บ <strong>"ดูโค้ด SQL สร้างตาราง"</strong></li>
-        <li>คัดลอก SQL ทั้งหมดไปรันใน <strong>Supabase SQL Editor</strong> อีกครั้ง (คำสั่งจะช่วยปิด RLS ให้อัตโนมัติ)</li>
-      </ol>
-    </div>`;
+  let htmlContent = `<div class="text-left text-xs bg-slate-100 p-2 rounded text-rose-800 font-mono break-all mb-2">${msg}</div>`;
+
+  if (isRLSError) {
+    htmlContent = `
+      <div class="text-left text-xs bg-rose-50 border border-rose-200 p-3 rounded-xl text-rose-900 space-y-2">
+        <p class="font-bold text-rose-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ข้อผิดพลาด RLS Policy (Code: 42501)</p>
+        <p>ตารางฐานข้อมูลใน Supabase เปิดใช้งาน Row Level Security ไว้ ทำให้ไม่สามารถเพิ่มหรือแก้ไขข้อมูลได้</p>
+        <p class="font-semibold text-slate-700 mt-1">วิธีแก้ปัญหา:</p>
+        <p class="text-[11px] text-slate-600">ไปที่ Supabase Dashboard &gt; SQL Editor แล้วรันคำสั่ง SQL นี้เพื่อปิด RLS สำหรับตารางทั้งหมด:</p>
+        <pre class="bg-slate-900 text-emerald-400 p-2.5 rounded font-mono text-[11px] overflow-x-auto select-all">ALTER TABLE public.schedules DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shift_types DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.holidays DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leaves DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shift_swaps DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;</pre>
+      </div>
+    `;
+  } else if (isFKError) {
+    htmlContent = `
+      <div class="text-left text-xs bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900 space-y-2">
+        <p class="font-bold text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ข้อผิดพลาด Foreign Key (Code: 23503)</p>
+        <p>ข้อมูลบุคลากร (เช่น ER00011 หรือ ER00012) ยังไม่มีอยู่ในตาราง <code>staff</code> ของฐานข้อมูล Supabase ของท่าน</p>
+        <p class="font-semibold text-slate-700 mt-1">วิธีแก้ปัญหา:</p>
+        <p class="text-[11px] text-slate-600">ไปที่ Supabase Dashboard &gt; SQL Editor แล้วรันคำสั่งเพิ่มบุคลากรล่าสุด หรือรันสคริปต์ <code>supabase_schema.sql</code> ฉบับสมบูรณ์:</p>
+        <pre class="bg-slate-900 text-emerald-400 p-2.5 rounded font-mono text-[11px] overflow-x-auto select-all">INSERT INTO public.staff (staff_id, password, full_name, position, professional_level, phone, status, role) VALUES
+  ('ER00011', '123456', 'นายสมชาย ช่วยดี', 'พนักงานผู้ช่วยเหลือคนไข้', 'ผู้ช่วยเหลือคนไข้', '081-2345678', 'ปกติ', 'patient_assistant'),
+  ('ER00012', '123456', 'น.ส.มาลี ดูแลดี', 'พนักงานผู้ช่วยพยาบาล', 'ผู้ช่วยเหลือพยาบาล', '082-3456789', 'ปกติ', 'nurse_assistant')
+ON CONFLICT (staff_id) DO NOTHING;</pre>
+      </div>
+    `;
   } else {
-    html += `<p class="text-[11px] text-slate-500 mt-2">โปรดตรวจสอบว่าได้รันคำสั่ง SQL สร้างตารางและสิทธิ์ในฐานข้อมูลแล้วหรือยัง</p>`;
+    htmlContent += `<p class="text-[11px] text-slate-500 mt-2">โปรดตรวจสอบว่าได้รันคำสั่ง SQL สร้างตารางและสิทธิ์ในฐานข้อมูลแล้วหรือยัง</p>`;
   }
 
   Swal.fire({
     icon: 'error',
-    title: `ข้อผิดพลาดในระบบ (${action})`,
-    html,
-    confirmButtonColor: '#0284c7'
+    title: isRLSError ? `ข้อผิดพลาดสิทธิ์ตาราง (RLS Policy)` : isFKError ? `ข้อผิดพลาด Foreign Key (Staff ID ไม่พบ)` : `ข้อผิดพลาดในระบบ (${action})`,
+    html: htmlContent,
+    confirmButtonColor: '#0284c7',
+    showCancelButton: isRLSError || isFKError,
+    cancelButtonText: 'สลับไปโหมดจำลอง (ไม่ต้องใช้ Supabase)',
+    cancelButtonColor: '#64748b'
+  }).then((result) => {
+    if (result.dismiss === Swal.DismissReason.cancel && (isRLSError || isFKError)) {
+      resetSupabaseConfigFromLogin();
+    }
   });
 }
 
 // --------------------------------------------------------------------------
-// 1. SUPABASE INITIALIZATION & MULTI-DEVICE STATUS
+// 1. SUPABASE INITIALIZATION & STATUS
 // --------------------------------------------------------------------------
-let realtimeChannel = null;
-
-function setupSupabaseRealtime(sb) {
-  if (!sb) return;
-  try {
-    if (realtimeChannel && typeof sb.removeChannel === 'function') {
-      sb.removeChannel(realtimeChannel);
-    }
-    realtimeChannel = sb.channel('public-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        console.log('[Supabase Realtime] Database change detected, syncing data...', payload);
-        loadAllSupabaseData(false);
-      })
-      .subscribe((status) => {
-        console.log('[Supabase Realtime status]:', status);
-      });
-  } catch (err) {
-    console.warn('Could not setup Supabase realtime subscription:', err);
-  }
-}
-
-async function syncDatabaseNow() {
-  Swal.showLoading();
-  await loadAndSyncSupabaseConfig();
-  await loadAllSupabaseData(true);
-}
-
-// Auto re-sync when window gains focus
-window.addEventListener('focus', () => {
-  if (AppState.supabaseClient) {
-    loadAllSupabaseData(false);
-  }
-});
-
-function initSupabase(overrideUrl = null, overrideKey = null) {
-  const url = overrideUrl;
-  const key = overrideKey;
+function initSupabase() {
+  const url = localStorage.getItem('er_supabase_url');
+  const key = localStorage.getItem('er_supabase_key');
   const sbLibrary = window.supabase;
 
   if (url && key && sbLibrary && typeof sbLibrary.createClient === 'function') {
     try {
       AppState.supabaseClient = sbLibrary.createClient(url, key);
       updateSbStatusBadge(true);
-      setupSupabaseRealtime(AppState.supabaseClient);
       return true;
     } catch (e) {
       console.warn('Supabase init error:', e);
@@ -238,39 +230,6 @@ function initSupabase(overrideUrl = null, overrideKey = null) {
   }
   updateSbStatusBadge(false);
   return false;
-}
-
-// Synchronize database configuration across all devices via Supabase database / server config API
-async function loadAndSyncSupabaseConfig() {
-  try {
-    let serverConfig = null;
-    try {
-      const res = await fetch('/api/db-config');
-      if (res.ok) {
-        serverConfig = await res.json();
-      }
-    } catch (apiErr) {
-      try {
-        const fRes = await fetch('./db_config.json');
-        if (fRes.ok) {
-          serverConfig = await fRes.json();
-        }
-      } catch (fErr) {}
-    }
-
-    if (serverConfig && serverConfig.url && serverConfig.key) {
-      const sUrl = String(serverConfig.url).trim();
-      const sKey = String(serverConfig.key).trim();
-      if (sUrl && sKey) {
-        AppState.cachedDbConfig = { url: sUrl, key: sKey };
-        if (!AppState.supabaseClient) {
-          initSupabase(sUrl, sKey);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Error during cross-device DB config sync:', err);
-  }
 }
 
 function updateSbStatusBadge(isConnected) {
@@ -282,7 +241,7 @@ function updateSbStatusBadge(isConnected) {
     txt.textContent = 'Supabase Connected';
   } else {
     dot.className = 'w-2 h-2 rounded-full bg-amber-400';
-    txt.textContent = 'รอเชื่อมต่อฐานข้อมูล';
+    txt.textContent = 'ตั้งค่าฐานข้อมูล (Demo Mode)';
   }
 }
 
@@ -291,7 +250,7 @@ function updateSbStatusBadge(isConnected) {
 // --------------------------------------------------------------------------
 async function initializeApp() {
   startLiveClock();
-  await loadAndSyncSupabaseConfig();
+  initSupabase();
   await loadAllSupabaseData(false);
   checkRememberedLogin();
 
@@ -710,7 +669,6 @@ async function handleLoginSubmit(e) {
     });
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('mainApp').classList.remove('hidden');
-    await loadAllSupabaseData(false);
     applyRolePermissions();
     if (user.role === 'admin' || user.role === 'head_nurse') {
       navigateMenu('dashboard');
@@ -2932,12 +2890,12 @@ async function respondPeerSwap(id, status) {
 
 async function approveHeadSwap(id, status) {
   const u = AppState.currentUser || {};
-  const isHead = u.role === 'head_nurse';
-  if (!isHead) {
+  const isHeadOrAdmin = ['admin', 'head_nurse'].includes(u.role);
+  if (!isHeadOrAdmin) {
     Swal.fire({
       icon: 'warning',
       title: 'ไม่มีสิทธิ์อนุมัติขั้นสุดท้าย',
-      text: 'เฉพาะหัวหน้าพยาบาลเท่านั้นที่สามารถอนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลักได้ (แอดมินไม่สามารถอนุมัติแทนได้)',
+      text: 'เฉพาะแอดมินและหัวหน้าพยาบาลเท่านั้นที่สามารถอนุมัติขั้นสุดท้ายเพื่อปรับตารางเวรหลักได้',
       confirmButtonColor: '#0284c7'
     });
     return;
@@ -3971,7 +3929,7 @@ INSERT INTO public.notifications (id, target_staff_id, title, message, type, is_
 ON CONFLICT (id) DO NOTHING;`;
 }
 
-async function openSupabaseConfigModal(allowFromLogin = false) {
+function openSupabaseConfigModal(allowFromLogin = false) {
   if (!allowFromLogin && AppState.currentUser && AppState.currentUser.role !== 'admin') {
     Swal.fire({
       icon: 'warning',
@@ -3982,53 +3940,14 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
     return;
   }
 
-  Swal.showLoading();
-
-  let fetchedUrl = '';
-  let fetchedKey = '';
-
-  try {
-    const res = await fetch('/api/db-config');
-    if (res.ok) {
-      const d = await res.json();
-      if (d && d.url && d.key) {
-        fetchedUrl = d.url;
-        fetchedKey = d.key;
-      }
-    }
-
-    if (!fetchedUrl || !fetchedKey) {
-      const fRes = await fetch('./db_config.json');
-      if (fRes.ok) {
-        const fd = await fRes.json();
-        if (fd && fd.url && fd.key) {
-          fetchedUrl = fd.url;
-          fetchedKey = fd.key;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Could not fetch latest db config in modal:', e);
-  }
-
-  Swal.close();
-
-  if (fetchedUrl && fetchedKey) {
-    AppState.cachedDbConfig = { url: fetchedUrl, key: fetchedKey };
-  } else if (AppState.cachedDbConfig?.url && AppState.cachedDbConfig?.key) {
-    fetchedUrl = AppState.cachedDbConfig.url;
-    fetchedKey = AppState.cachedDbConfig.key;
-  }
-
-  const urlInput = document.getElementById('inputSbUrl');
-  const keyInput = document.getElementById('inputSbKey');
-  const resBox = document.getElementById('sbConnectResult');
+  document.getElementById('inputSbUrl').value = localStorage.getItem('er_supabase_url') || '';
+  document.getElementById('inputSbKey').value = localStorage.getItem('er_supabase_key') || '';
+  document.getElementById('sbConnectResult').classList.add('hidden');
+  
   const sqlBox = document.getElementById('sbSqlScriptContent');
-
-  if (urlInput) urlInput.value = fetchedUrl;
-  if (keyInput) keyInput.value = fetchedKey;
-  if (sqlBox) sqlBox.value = getSupabaseSqlSchema();
-  if (resBox) resBox.classList.add('hidden');
+  if (sqlBox) {
+    sqlBox.value = getSupabaseSqlSchema();
+  }
 
   switchSbModalTab('connect');
   openModal('modalSupabaseConfig');
@@ -4096,41 +4015,27 @@ async function saveAndTestSupabaseConfig() {
     const testClient = sbLibrary.createClient(url, key);
     const { data, error } = await testClient.from('staff').select('count', { count: 'exact' });
     
-    AppState.supabaseClient = testClient;
-    updateSbStatusBadge(true);
-    AppState.cachedDbConfig = { url, key };
-
-    // Save to central server database config exclusively
-    try {
-      await fetch('/api/db-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, key })
-      });
-      console.log('Successfully saved Supabase credentials to database server');
-    } catch (pushErr) {
-      console.warn('Could not save to database server:', pushErr);
-    }
-
     // Check if table missing
     if (error && (error.code === '42P01' || (error.message && error.message.includes('relation "public.staff" does not exist')))) {
+      localStorage.setItem('er_supabase_url', url);
+      localStorage.setItem('er_supabase_key', key);
+      AppState.supabaseClient = testClient;
+      updateSbStatusBadge(true);
       resBox.className = 'p-2.5 rounded-xl text-xs bg-amber-50 text-amber-900 border border-amber-200 block';
-      resBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> เชื่อมต่อสำเร็จและบันทึกสู่ทุกอุปกรณ์แล้ว! แต่ยังไม่ได้รัน SQL สร้างตาราง กรุณาคัดลอก SQL ในแท็บ "ดูโค้ด SQL สร้างตาราง" ไปกด Run ใน Supabase SQL Editor';
+      resBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> เชื่อมต่อ Host สำเร็จ แต่ยังไม่ได้รัน SQL สร้างตาราง กรุณาคัดลอก SQL ในแท็บ "ดูโค้ด SQL สร้างตาราง" ไปกด Run ใน Supabase SQL Editor';
       return;
     }
 
     if (error) throw error;
 
+    localStorage.setItem('er_supabase_url', url);
+    localStorage.setItem('er_supabase_key', key);
+    AppState.supabaseClient = testClient;
+
     resBox.className = 'p-2.5 rounded-xl text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 block';
-    resBox.innerHTML = '<i class="fa-solid fa-check text-emerald-600 mr-1"></i> เชื่อมต่อสำเร็จและบันทึกสู่ทุกอุปกรณ์แล้ว!';
+    resBox.innerHTML = '<i class="fa-solid fa-check text-emerald-600 mr-1"></i> เชื่อมต่อ Supabase สำเร็จ พร้อมใช้งาน CRUD!';
+    updateSbStatusBadge(true);
     await loadAllSupabaseData(false);
-    Swal.fire({
-      icon: 'success',
-      title: 'บันทึกการเชื่อมต่อเรียบร้อย',
-      html: '<p class="text-sm text-slate-600">บันทึกการตั้งค่าสู่ระบบส่วนกลางแล้ว <strong>อุปกรณ์และเครื่องอื่นๆ ทุกเครื่องจะใช้งานฐานข้อมูลนี้ได้อัตโนมัติทันที</strong> โดยไม่ต้องตั้งค่าใหม่อีกต่อไป (ล็อกการเชื่อมต่อถาวร ไม่อนุญาตให้ Reset to Demo)</p>',
-      confirmButtonText: 'ตกลง',
-      confirmButtonColor: '#059669'
-    });
     setTimeout(() => closeModal('modalSupabaseConfig'), 1200);
   } catch (err) {
     resBox.className = 'p-2.5 rounded-xl text-xs bg-rose-50 text-rose-800 border border-rose-200 block';
@@ -4139,22 +4044,29 @@ async function saveAndTestSupabaseConfig() {
 }
 
 function resetSupabaseConfig(allowFromLogin = false) {
-  Swal.fire({
-    icon: 'info',
-    title: 'ระบบเชื่อมต่อฐานข้อมูลถาวร',
-    text: 'ระบบถูกกำหนดให้เชื่อมต่อฐานข้อมูล Supabase ตลอดเวลา และไม่อนุญาตให้รีเซ็ตเป็นโหมดจำลอง (Demo) เพื่อป้องกันข้อมูลสูญหาย',
-    confirmButtonText: 'รับทราบ',
-    confirmButtonColor: '#0284c7'
-  });
+  if (!allowFromLogin && AppState.currentUser && AppState.currentUser.role !== 'admin') {
+    Swal.fire({ icon: 'warning', title: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น' });
+    return;
+  }
+
+  resetSupabaseConfigFromLogin();
+  closeModal('modalSupabaseConfig');
 }
 
 function resetSupabaseConfigFromLogin() {
+  localStorage.removeItem('er_supabase_url');
+  localStorage.removeItem('er_supabase_key');
+  AppState.supabaseClient = null;
+  updateSbStatusBadge(false);
+  loadDefaultMockData();
+  renderAllViews();
+  quickFillLogin('ER00001', '123456');
   Swal.fire({
-    icon: 'info',
-    title: 'ระบบเชื่อมต่อฐานข้อมูลถาวร',
-    text: 'ระบบถูกกำหนดให้เชื่อมต่อฐานข้อมูล Supabase ตลอดเวลา และไม่อนุญาตให้รีเซ็ตเป็นโหมดจำลอง (Demo) เพื่อป้องกันข้อมูลสูญหาย',
-    confirmButtonText: 'รับทราบ',
-    confirmButtonColor: '#0284c7'
+    icon: 'success',
+    title: 'รีเซ็ตโหมดจำลองเรียบร้อย',
+    text: 'สามารถเข้าสู่ระบบด้วย ER00001 (รหัสผ่าน 123456) ได้ทันที',
+    timer: 1800,
+    showConfirmButton: false
   });
 }
 
@@ -4207,6 +4119,8 @@ window.executeAutoSchedule = executeAutoSchedule;
 window.publishRosterToAll = publishRosterToAll;
 window.confirmClearRoster = confirmClearRoster;
 window.openCellEditModal = openCellEditModal;
+window.toggleCellShiftOption = toggleCellShiftOption;
+window.confirmSaveMultiCellShift = confirmSaveMultiCellShift;
 window.saveCellShift = saveCellShift;
 window.setMyScheduleMode = setMyScheduleMode;
 window.openLeaveRequestModal = openLeaveRequestModal;
@@ -4244,4 +4158,3 @@ window.handleSaveSettings = handleSaveSettings;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.updateSidebarBadges = updateSidebarBadges;
-window.syncDatabaseNow = syncDatabaseNow;
