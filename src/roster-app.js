@@ -169,6 +169,40 @@ function showSupabaseError(action, err) {
 // --------------------------------------------------------------------------
 // 1. SUPABASE INITIALIZATION & MULTI-DEVICE STATUS
 // --------------------------------------------------------------------------
+let realtimeChannel = null;
+
+function setupSupabaseRealtime(sb) {
+  if (!sb) return;
+  try {
+    if (realtimeChannel && typeof sb.removeChannel === 'function') {
+      sb.removeChannel(realtimeChannel);
+    }
+    realtimeChannel = sb.channel('public-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('[Supabase Realtime] Database change detected, syncing data...', payload);
+        loadAllSupabaseData(false);
+      })
+      .subscribe((status) => {
+        console.log('[Supabase Realtime status]:', status);
+      });
+  } catch (err) {
+    console.warn('Could not setup Supabase realtime subscription:', err);
+  }
+}
+
+async function syncDatabaseNow() {
+  Swal.showLoading();
+  await loadAndSyncSupabaseConfig();
+  await loadAllSupabaseData(true);
+}
+
+// Auto re-sync when window gains focus
+window.addEventListener('focus', () => {
+  if (AppState.supabaseClient) {
+    loadAllSupabaseData(false);
+  }
+});
+
 function initSupabase(overrideUrl = null, overrideKey = null) {
   const url = overrideUrl || localStorage.getItem('er_supabase_url');
   const key = overrideKey || localStorage.getItem('er_supabase_key');
@@ -178,6 +212,7 @@ function initSupabase(overrideUrl = null, overrideKey = null) {
     try {
       AppState.supabaseClient = sbLibrary.createClient(url, key);
       updateSbStatusBadge(true);
+      setupSupabaseRealtime(AppState.supabaseClient);
       return true;
     } catch (e) {
       console.warn('Supabase init error:', e);
@@ -4194,3 +4229,4 @@ window.handleSaveSettings = handleSaveSettings;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.updateSidebarBadges = updateSidebarBadges;
+window.syncDatabaseNow = syncDatabaseNow;
