@@ -433,6 +433,7 @@
                 <button onclick="changeRosterMonth(1)" class="p-1 px-2 hover:bg-white rounded"><i class="fa-solid fa-chevron-right"></i></button>
               </div>
               <button id="btnOpenAutoScheduleModal" onclick="openAutoScheduleModal()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-teal-600 text-white text-xs font-medium shadow-xs flex items-center space-x-1.5"><i class="fa-solid fa-wand-magic-sparkles"></i><span>จัดตารางอัตโนมัติ</span></button>
+              <button id="btnPublishRoster" onclick="publishRosterToAll()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-medium shadow-xs flex items-center space-x-1.5"><i class="fa-solid fa-paper-plane"></i><span>ประกาศตารางเวร & แจ้งเตือนทุกคน</span></button>
               <button id="btnClearRoster" onclick="confirmClearRoster()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-medium border border-slate-200 flex items-center space-x-1"><i class="fa-solid fa-trash-can"></i><span>ล้างตารางเดือนนี้</span></button>
               <button onclick="exportRosterToExcel()" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200 flex items-center space-x-1"><i class="fa-solid fa-file-excel"></i><span>Excel</span></button>
             </div>
@@ -817,7 +818,7 @@
 
       <div id="tabSbConnect" class="space-y-3">
         <p class="text-slate-600 leading-relaxed">
-          นำ <strong>Project URL</strong> และ <strong>anon public API key</strong> จาก Cloud Database Dashboard (เข้าที่ <em>Project Settings &rarr; API</em>) มาวางที่นี่เพื่อทำการเชื่อมต่อและซิงค์ข้อมูล:
+          นำ <strong>Project URL</strong> และ <strong>anon public API key</strong> จาก Supabase Dashboard (เข้าที่ <em>Project Settings &rarr; API</em>) มาบันทึกที่นี่ <strong>เพียงตั้งค่าครั้งเดียวจากเครื่องใดก็ได้ ระบบจะบันทึกการเชื่อมต่อไปยังทุกอุปกรณ์ทันที</strong> และล็อกการเชื่อมต่อไว้โดยไม่ต้องตั้งค่าใหม่:
         </p>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Database Project URL</label>
@@ -828,11 +829,13 @@
           <input type="text" id="inputSbKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-[11px]">
         </div>
         <div id="sbConnectResult" class="hidden p-3 rounded-xl text-xs"></div>
-        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-          <button type="button" onclick="resetSupabaseConfig()" class="text-rose-600 hover:underline">ใช้ข้อมูลจำลอง (Reset to Demo)</button>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100 flex-wrap gap-2">
+          <span class="inline-flex items-center text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-medium">
+            <i class="fa-solid fa-shield-halved text-emerald-600 mr-1.5"></i>บันทึกถาวร ซิงค์อัตโนมัติทุกอุปกรณ์
+          </span>
           <div class="flex items-center space-x-2">
             <button type="button" onclick="closeModal('modalSupabaseConfig')" class="px-3.5 py-1.5 border border-slate-200 rounded-xl text-slate-600">ปิด</button>
-            <button type="button" onclick="saveAndTestSupabaseConfig()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl shadow-xs"><i class="fa-solid fa-plug mr-1"></i>บันทึกและเชื่อมต่อ</button>
+            <button type="button" onclick="saveAndTestSupabaseConfig()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl shadow-xs"><i class="fa-solid fa-floppy-disk mr-1"></i>บันทึกการเชื่อมต่อ (มีผลทุกเครื่อง)</button>
           </div>
         </div>
       </div>

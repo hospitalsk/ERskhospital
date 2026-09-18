@@ -4,6 +4,72 @@ import fs from 'fs';
 import path from 'path';
 import {defineConfig, Plugin} from 'vite';
 
+function dbConfigPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-db-config',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const configPath = path.resolve(__dirname, 'public', 'db_config.json');
+
+        if (req.url === '/api/db-config') {
+          if (req.method === 'GET') {
+            res.setHeader('Content-Type', 'application/json');
+            try {
+              if (fs.existsSync(configPath)) {
+                const content = fs.readFileSync(configPath, 'utf-8');
+                const parsed = JSON.parse(content);
+                if (parsed && parsed.url && parsed.key) {
+                  return res.end(JSON.stringify({ success: true, url: parsed.url, key: parsed.key, updatedAt: parsed.updatedAt }));
+                }
+              }
+            } catch (e) {
+              console.error('Error reading db_config:', e);
+            }
+            const envUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+            const envKey = process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
+            if (envUrl && envKey) {
+              return res.end(JSON.stringify({ success: true, url: envUrl, key: envKey, updatedAt: new Date().toISOString() }));
+            }
+            return res.end(JSON.stringify({ success: false, url: '', key: '' }));
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+              res.setHeader('Content-Type', 'application/json');
+              try {
+                const parsed = JSON.parse(body || '{}');
+                const { url, key } = parsed;
+                if (!url || !key) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ success: false, error: 'URL and Key required' }));
+                }
+                const data = {
+                  url: String(url).trim(),
+                  key: String(key).trim(),
+                  updatedAt: new Date().toISOString(),
+                };
+                const publicDir = path.resolve(__dirname, 'public');
+                if (!fs.existsSync(publicDir)) {
+                  fs.mkdirSync(publicDir, { recursive: true });
+                }
+                fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf-8');
+                return res.end(JSON.stringify({ success: true, message: 'Saved successfully' }));
+              } catch (e: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ success: false, error: e.message }));
+              }
+            });
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 // LINT.IfChange(aistudio_media_plugin)
 function aistudioMediaPlugin(): Plugin {
   return {
@@ -67,7 +133,7 @@ function aistudioMediaPlugin(): Plugin {
 export default defineConfig(() => {
   return {
     base: './',
-    plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    plugins: [react(), tailwindcss(), aistudioMediaPlugin(), dbConfigPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
