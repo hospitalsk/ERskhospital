@@ -215,8 +215,16 @@ ON CONFLICT (staff_id) DO NOTHING;</pre>
 // 1. SUPABASE INITIALIZATION & STATUS
 // --------------------------------------------------------------------------
 function initSupabase() {
-  const url = localStorage.getItem('er_supabase_url');
-  const key = localStorage.getItem('er_supabase_key');
+  let url = localStorage.getItem('er_supabase_url');
+  let key = localStorage.getItem('er_supabase_key');
+
+  if (!url || !key) {
+    url = 'https://bcqdkecixwhjuddhheyp.supabase.co';
+    key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcWRrZWNpeHdoanVkZGhoZXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MjE0MzgsImV4cCI6MjEwNTI5NzQzOH0.ZEb_htHEVrhM2dbgmCHpeZnkNsrkNIFin34xKBDi8S4';
+    localStorage.setItem('er_supabase_url', url);
+    localStorage.setItem('er_supabase_key', key);
+  }
+
   const sbLibrary = window.supabase;
 
   if (url && key && sbLibrary && typeof sbLibrary.createClient === 'function') {
