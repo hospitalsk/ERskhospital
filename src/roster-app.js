@@ -687,28 +687,9 @@ async function handleLoginSubmit(e) {
     Swal.fire({
       icon: 'error',
       title: 'เข้าสู่ระบบไม่สำเร็จ',
-      html: `
-        <div class="text-left text-xs text-slate-600 space-y-2">
-          <p>รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง</p>
-          <div class="p-2.5 bg-sky-50 border border-sky-200 rounded-lg text-sky-900 leading-relaxed">
-            <strong>ข้อมูลสำหรับทดสอบ (Demo Accounts):</strong><br>
-            • ผู้ดูแลระบบ: <code class="font-mono font-bold text-sky-700">ER00001</code> / รหัสผ่าน: <code class="font-mono">123456</code><br>
-            • หัวหน้าเวร: <code class="font-mono font-bold text-sky-700">ER00002</code> / รหัสผ่าน: <code class="font-mono">123456</code><br>
-            • พยาบาล: <code class="font-mono font-bold text-sky-700">ER00003</code> / รหัสผ่าน: <code class="font-mono">123456</code><br>
-            • ผู้ช่วยเหลือคนไข้: <code class="font-mono font-bold text-amber-700">ER00011</code> / รหัสผ่าน: <code class="font-mono">123456</code><br>
-            • ผู้ช่วยเหลือพยาบาล: <code class="font-mono font-bold text-teal-700">ER00012</code> / รหัสผ่าน: <code class="font-mono">123456</code>
-          </div>
-          <p class="text-[11px] text-slate-400">* ท่านสามารถกดปุ่ม "กรอกข้อมูล ER00001 อัตโนมัติ" เพื่อเข้าสู่ระบบได้ทันที</p>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'กรอก ER00001 อัตโนมัติ',
-      cancelButtonText: 'ปิด',
+      text: 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบใหม่อีกครั้ง',
+      confirmButtonText: 'ตกลง',
       confirmButtonColor: '#0284c7'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        quickFillLogin('ER00001', '123456');
-      }
     });
   }
 }
