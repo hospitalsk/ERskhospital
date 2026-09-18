@@ -3988,25 +3988,32 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
     return;
   }
 
-  let curUrl = localStorage.getItem('er_supabase_url') || '';
-  let curKey = localStorage.getItem('er_supabase_key') || '';
+  let curUrl = '';
+  let curKey = '';
+
+  try {
+    const res = await fetch('/api/db-config');
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.url && d.key) {
+        curUrl = d.url;
+        curKey = d.key;
+      }
+    }
+  } catch (e) {}
 
   if (!curUrl || !curKey) {
-    try {
-      const res = await fetch('/api/db-config');
-      if (res.ok) {
-        const d = await res.json();
-        if (d && d.url && d.key) {
-          curUrl = d.url;
-          curKey = d.key;
-        }
-      }
-    } catch (e) {}
+    curUrl = localStorage.getItem('er_supabase_url') || '';
+    curKey = localStorage.getItem('er_supabase_key') || '';
   }
 
-  document.getElementById('inputSbUrl').value = curUrl;
-  document.getElementById('inputSbKey').value = curKey;
-  document.getElementById('sbConnectResult').classList.add('hidden');
+  const urlInput = document.getElementById('inputSbUrl');
+  const keyInput = document.getElementById('inputSbKey');
+  if (urlInput) urlInput.value = curUrl;
+  if (keyInput) keyInput.value = curKey;
+  
+  const resBox = document.getElementById('sbConnectResult');
+  if (resBox) resBox.classList.add('hidden');
   
   const sqlBox = document.getElementById('sbSqlScriptContent');
   if (sqlBox) {
