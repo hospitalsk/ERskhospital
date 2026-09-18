@@ -710,6 +710,7 @@ async function handleLoginSubmit(e) {
     });
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('mainApp').classList.remove('hidden');
+    await loadAllSupabaseData(false);
     applyRolePermissions();
     if (user.role === 'admin' || user.role === 'head_nurse') {
       navigateMenu('dashboard');
