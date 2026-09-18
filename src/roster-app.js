@@ -3964,25 +3964,12 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
     return;
   }
 
-  const urlInput = document.getElementById('inputSbUrl');
-  const keyInput = document.getElementById('inputSbKey');
-  const resBox = document.getElementById('sbConnectResult');
-  const sqlBox = document.getElementById('sbSqlScriptContent');
+  Swal.showLoading();
 
-  // Populate instantly from cached memory if available
-  if (urlInput) urlInput.value = AppState.cachedDbConfig?.url || '';
-  if (keyInput) keyInput.value = AppState.cachedDbConfig?.key || '';
-  if (sqlBox) sqlBox.value = getSupabaseSqlSchema();
-  if (resBox) resBox.classList.add('hidden');
+  let fetchedUrl = '';
+  let fetchedKey = '';
 
-  switchSbModalTab('connect');
-  openModal('modalSupabaseConfig');
-
-  // Fetch config directly from Supabase database / server config API to ensure latest
   try {
-    let fetchedUrl = '';
-    let fetchedKey = '';
-
     const res = await fetch('/api/db-config');
     if (res.ok) {
       const d = await res.json();
@@ -4002,15 +3989,31 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
         }
       }
     }
-
-    if (fetchedUrl && fetchedKey) {
-      AppState.cachedDbConfig = { url: fetchedUrl, key: fetchedKey };
-      if (urlInput) urlInput.value = fetchedUrl;
-      if (keyInput) keyInput.value = fetchedKey;
-    }
   } catch (e) {
     console.warn('Could not fetch latest db config in modal:', e);
   }
+
+  Swal.close();
+
+  if (fetchedUrl && fetchedKey) {
+    AppState.cachedDbConfig = { url: fetchedUrl, key: fetchedKey };
+  } else if (AppState.cachedDbConfig?.url && AppState.cachedDbConfig?.key) {
+    fetchedUrl = AppState.cachedDbConfig.url;
+    fetchedKey = AppState.cachedDbConfig.key;
+  }
+
+  const urlInput = document.getElementById('inputSbUrl');
+  const keyInput = document.getElementById('inputSbKey');
+  const resBox = document.getElementById('sbConnectResult');
+  const sqlBox = document.getElementById('sbSqlScriptContent');
+
+  if (urlInput) urlInput.value = fetchedUrl;
+  if (keyInput) keyInput.value = fetchedKey;
+  if (sqlBox) sqlBox.value = getSupabaseSqlSchema();
+  if (resBox) resBox.classList.add('hidden');
+
+  switchSbModalTab('connect');
+  openModal('modalSupabaseConfig');
 }
 
 function switchSbModalTab(tab) {
