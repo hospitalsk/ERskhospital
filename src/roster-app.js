@@ -204,8 +204,8 @@ window.addEventListener('focus', () => {
 });
 
 function initSupabase(overrideUrl = null, overrideKey = null) {
-  const url = overrideUrl || localStorage.getItem('er_supabase_url');
-  const key = overrideKey || localStorage.getItem('er_supabase_key');
+  const url = overrideUrl;
+  const key = overrideKey;
   const sbLibrary = window.supabase;
 
   if (url && key && sbLibrary && typeof sbLibrary.createClient === 'function') {
@@ -222,16 +222,8 @@ function initSupabase(overrideUrl = null, overrideKey = null) {
   return false;
 }
 
-// Synchronize database configuration across all devices via server storage
+// Synchronize database configuration across all devices via Supabase database / server config API
 async function loadAndSyncSupabaseConfig() {
-  const localUrl = localStorage.getItem('er_supabase_url');
-  const localKey = localStorage.getItem('er_supabase_key');
-
-  // Immediately try connecting with cached credentials if available
-  if (localUrl && localKey) {
-    initSupabase(localUrl, localKey);
-  }
-
   try {
     let serverConfig = null;
     try {
@@ -240,7 +232,6 @@ async function loadAndSyncSupabaseConfig() {
         serverConfig = await res.json();
       }
     } catch (apiErr) {
-      // Fallback: fetch static db_config.json if API route is unavailable
       try {
         const fRes = await fetch('./db_config.json');
         if (fRes.ok) {
@@ -253,26 +244,9 @@ async function loadAndSyncSupabaseConfig() {
       const sUrl = String(serverConfig.url).trim();
       const sKey = String(serverConfig.key).trim();
       if (sUrl && sKey) {
-        // If server has config, ensure local storage and client are updated
-        const isDiff = sUrl !== localUrl || sKey !== localKey;
-        if (isDiff || !AppState.supabaseClient) {
-          localStorage.setItem('er_supabase_url', sUrl);
-          localStorage.setItem('er_supabase_key', sKey);
+        if (!AppState.supabaseClient) {
           initSupabase(sUrl, sKey);
         }
-      }
-    } else if (localUrl && localKey) {
-      // This device already has connection settings but the server didn't have it yet.
-      // Push it to the server so all other devices automatically get it!
-      try {
-        await fetch('/api/db-config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: localUrl, key: localKey })
-        });
-        console.log('Synchronized local Supabase configuration to server for other devices');
-      } catch (pushErr) {
-        console.warn('Could not push local DB config to server:', pushErr);
       }
     }
   } catch (err) {
@@ -3988,40 +3962,51 @@ async function openSupabaseConfigModal(allowFromLogin = false) {
     return;
   }
 
-  let curUrl = '';
-  let curKey = '';
+  const urlInput = document.getElementById('inputSbUrl');
+  const keyInput = document.getElementById('inputSbKey');
+  const resBox = document.getElementById('sbConnectResult');
+  const sqlBox = document.getElementById('sbSqlScriptContent');
 
+  if (urlInput) urlInput.value = '';
+  if (keyInput) keyInput.value = '';
+  if (sqlBox) sqlBox.value = getSupabaseSqlSchema();
+  if (resBox) resBox.classList.add('hidden');
+
+  switchSbModalTab('connect');
+  openModal('modalSupabaseConfig');
+
+  // Fetch config directly from Supabase database / server config API exclusively
   try {
+    let fetchedUrl = '';
+    let fetchedKey = '';
+
     const res = await fetch('/api/db-config');
     if (res.ok) {
       const d = await res.json();
       if (d && d.url && d.key) {
-        curUrl = d.url;
-        curKey = d.key;
+        fetchedUrl = d.url;
+        fetchedKey = d.key;
       }
     }
-  } catch (e) {}
 
-  if (!curUrl || !curKey) {
-    curUrl = localStorage.getItem('er_supabase_url') || '';
-    curKey = localStorage.getItem('er_supabase_key') || '';
+    if (!fetchedUrl || !fetchedKey) {
+      const fRes = await fetch('./db_config.json');
+      if (fRes.ok) {
+        const fd = await fRes.json();
+        if (fd && fd.url && fd.key) {
+          fetchedUrl = fd.url;
+          fetchedKey = fd.key;
+        }
+      }
+    }
+
+    if (fetchedUrl && fetchedKey) {
+      if (urlInput) urlInput.value = fetchedUrl;
+      if (keyInput) keyInput.value = fetchedKey;
+    }
+  } catch (e) {
+    console.warn('Could not fetch latest db config in modal:', e);
   }
-
-  const urlInput = document.getElementById('inputSbUrl');
-  const keyInput = document.getElementById('inputSbKey');
-  if (urlInput) urlInput.value = curUrl;
-  if (keyInput) keyInput.value = curKey;
-  
-  const resBox = document.getElementById('sbConnectResult');
-  if (resBox) resBox.classList.add('hidden');
-  
-  const sqlBox = document.getElementById('sbSqlScriptContent');
-  if (sqlBox) {
-    sqlBox.value = getSupabaseSqlSchema();
-  }
-
-  switchSbModalTab('connect');
-  openModal('modalSupabaseConfig');
 }
 
 function switchSbModalTab(tab) {
@@ -4086,22 +4071,19 @@ async function saveAndTestSupabaseConfig() {
     const testClient = sbLibrary.createClient(url, key);
     const { data, error } = await testClient.from('staff').select('count', { count: 'exact' });
     
-    // Save to local device
-    localStorage.setItem('er_supabase_url', url);
-    localStorage.setItem('er_supabase_key', key);
     AppState.supabaseClient = testClient;
     updateSbStatusBadge(true);
 
-    // Save to central server so ALL devices and browsers get it automatically
+    // Save to central server database config exclusively
     try {
       await fetch('/api/db-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, key })
       });
-      console.log('Successfully saved Supabase credentials to server for all devices');
+      console.log('Successfully saved Supabase credentials to database server');
     } catch (pushErr) {
-      console.warn('Could not save to central server:', pushErr);
+      console.warn('Could not save to database server:', pushErr);
     }
 
     // Check if table missing
