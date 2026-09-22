@@ -996,17 +996,19 @@
         <div class="p-2.5 bg-sky-50 rounded-xl border border-sky-200">
           <span class="font-bold text-sky-900 block mb-1">1. เวรของคุณที่ต้องการแลก:</span>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="text-slate-600 mb-1 block">วันที่</label><input type="date" id="swapReqDate" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
-            <div><label class="text-slate-600 mb-1 block">กะเวร</label><select id="swapReqShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
+            <div><label class="text-slate-600 mb-1 block">วันที่ *</label><input type="date" id="swapReqDate" required onchange="window.updateSwapRequesterShift && window.updateSwapRequesterShift()" class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
+            <div><label class="text-slate-600 mb-1 block">กะเวร (ดึงอัตโนมัติ) *</label><select id="swapReqShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
           </div>
+          <div id="swapReqShiftInfo"></div>
         </div>
         <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200">
           <span class="font-bold text-rose-900 block mb-1">2. เพื่อนร่วมงานที่ต้องการแลกด้วย:</span>
-          <div class="mb-2"><select id="swapTargetStaff" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></select></div>
+          <div class="mb-2"><select id="swapTargetStaff" required onchange="window.updateSwapTargetShift && window.updateSwapTargetShift()" class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></select></div>
           <div class="grid grid-cols-2 gap-2">
-            <div><label class="text-slate-600 mb-1 block">วันที่ของเพื่อน</label><input type="date" id="swapTargetDate" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
-            <div><label class="text-slate-600 mb-1 block">กะของเพื่อน</label><select id="swapTargetShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
+            <div><label class="text-slate-600 mb-1 block">วันที่ของเพื่อน *</label><input type="date" id="swapTargetDate" required onchange="window.updateSwapTargetShift && window.updateSwapTargetShift()" class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"></div>
+            <div><label class="text-slate-600 mb-1 block">กะของเพื่อน (ดึงอัตโนมัติ) *</label><select id="swapTargetShift" required class="w-full p-1.5 rounded-lg border border-slate-200 bg-white"><option value="M">เวรเช้า (ช)</option><option value="A">เวรบ่าย (บ)</option><option value="N">เวรดึก (ด)</option><option value="ONCALL">On Call</option><option value="OFF">วันหยุด</option></select></div>
           </div>
+          <div id="swapTargetShiftInfo"></div>
         </div>
         <div><label class="block font-semibold text-slate-600 mb-1">เหตุผล</label><input type="text" id="swapReason" class="w-full p-2 rounded-xl border border-slate-200"></div>
         <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
